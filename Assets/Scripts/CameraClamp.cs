@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class CameraClamp : MonoBehaviour
 {
-    public float restrictionAngle = -50f;
+    public float restrictionAngle;
 
     void Update()
     {
