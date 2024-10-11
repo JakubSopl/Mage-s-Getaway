@@ -9,6 +9,9 @@ public class Movement : MonoBehaviour
 
     public Transform Cam;
 
+    // Pøidej veøejnou promìnnou pro CameraController
+    public CameraController cameraController;
+
     private Vector3 playerVelocity;
     private bool groundedPlayer;
     public float playerSpeed = 2f;
@@ -33,25 +36,35 @@ public class Movement : MonoBehaviour
         float h = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
 
+        // Ovìøíme, jestli jsme v režimu první osoby
+        bool isFirstPerson = cameraController.isFirstPerson;
+
+        // Pokud jsme v první osobì, povolíme pouze dopøedný pohyb pomocí klávesy "W"
+        if (isFirstPerson)
+        {
+            h = 0; // Zakážeme horizontální pohyb (A a D)
+            z = Mathf.Clamp(z, 0, 1); // Povolíme pouze dopøedný pohyb (W), zakážeme pohyb vzad (S)
+        }
+
         Vector3 move = new Vector3(h, 0, z).normalized;
 
-        // If player is moving
+        // Pokud se hráè pohybuje
         if (move.magnitude >= 0.1f)
         {
-            // Player Direction
+            // Smìr pohybu hráèe
             float targetAngle = Mathf.Atan2(move.x, move.z) * Mathf.Rad2Deg + Cam.eulerAngles.y;
             float angle = Mathf.SmoothDampAngle(transform.eulerAngles.y, targetAngle, ref turnSmoothness, turnSmoothing);
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
             Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
 
-            // Apply correct speed: Run if Shift is held and player is moving, otherwise walk
+            // Aplikujeme správnou rychlost: Bìh pokud je zmáèknuto Shift, jinak chùze
             float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : playerSpeed;
             controller.Move(moveDirection * speed * Time.deltaTime);
         }
         else
         {
-            // When no input is detected, stop the character from moving immediately.
+            // Když není detekován žádný vstup, zastavíme postavu okamžitì
             controller.Move(Vector3.zero);
         }
 
@@ -60,7 +73,7 @@ public class Movement : MonoBehaviour
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);  // Smooth transition using damping
 
-        // Jump
+        // Skok
         if (Input.GetButtonDown("Jump") && groundedPlayer)
         {
             playerVelocity.y += Mathf.Sqrt(jumpSpeed * -3.0f * gravityValue);
@@ -69,6 +82,7 @@ public class Movement : MonoBehaviour
         playerVelocity.y += gravityValue * Time.deltaTime;
         controller.Move(playerVelocity * Time.deltaTime);
 
+        // Animace pádu
         if (groundedPlayer)
         {
             animator.SetBool("fall", false);
@@ -78,14 +92,14 @@ public class Movement : MonoBehaviour
             animator.SetBool("fall", true);
         }
 
-        // Only set run animation if movement is present and the player is pressing shift
+        // Nastavení animace bìhu, pokud se hráè pohybuje a drží Shift
         if (move.magnitude > 0 && Input.GetKey(KeyCode.LeftShift))
         {
             animator.SetBool("run", true);
         }
         else
         {
-            animator.SetBool("run", false);  // Stop run animation when there's no movement, even if Shift is held
+            animator.SetBool("run", false);  // Zastavení bìhu, pokud není pohyb
         }
     }
 }

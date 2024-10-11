@@ -2326,6 +2326,7 @@ MonoBehaviour:
   animator: {fileID: 705621938}
   controller: {fileID: 705621937}
   Cam: {fileID: 1607980999}
+  cameraController: {fileID: 1607981000}
   playerSpeed: 2
   runSpeed: 4
   jumpSpeed: 1
@@ -4994,6 +4995,7 @@ MonoBehaviour:
   zoomDefault: 5
   zoomDistance: 7
   collisionSensitivity: 2.5
+  isFirstPerson: 0
   firstPersonCenter: {fileID: 377391957}
   minPitch: -3
   maxPitch: 8

@@ -18,7 +18,7 @@ public class CameraController : MonoBehaviour
     public float zoomDistance;
     public float collisionSensitivity = 2.5f;
 
-    private bool isFirstPerson = false;
+    public bool isFirstPerson = false;
     public GameObject firstPersonCenter; // Objekt za hlavou hráèe pro faux first-person view
 
     //Pro "první osobu"
