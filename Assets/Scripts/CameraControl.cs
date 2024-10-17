@@ -21,7 +21,6 @@ public class CameraController : MonoBehaviour
     public bool isFirstPerson = false;
     public GameObject firstPersonCenter; // Objekt za hlavou hráèe pro faux first-person view
 
-    //Pro "první osobu"
     private float yaw;
     private float pitch;
     public float minPitch;   // Maximální sklon dolù
@@ -31,11 +30,20 @@ public class CameraController : MonoBehaviour
     private float smoothPitch;
     public float smoothTime = 0.1f; // Èas pro hladké pøechody
 
+    // Pøidány promìnné pro animaci pøepnutí kamery
+    public bool isTransitioning = false;
+    private float transitionProgress = 0f;
+    public float transitionDuration = 1.0f; // Délka pøechodu (v sekundách)
+
+    private Vector3 startCamPos;
+    private Quaternion startCamRot;
+    private Vector3 targetCamPos;
+    private Quaternion targetCamRot;
+
     void Start()
     {
-        camDist = cam.transform.localPosition;
+        camDist = new Vector3(0, yOffset, -zoomDefault); // Nastavení defaultní pozice kamery ve tøetí osobì
         zoomDistance = zoomDefault;
-        camDist.z = zoomDistance;
         Cursor.visible = false;
         yaw = character.transform.eulerAngles.y;
         pitch = cam.transform.eulerAngles.x;
@@ -45,31 +53,66 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.V))
+        if (isTransitioning)
         {
-            isFirstPerson = !isFirstPerson;
-
-            if (isFirstPerson)
-            {
-                cam.transform.SetParent(firstPersonCenter.transform); // Pøipojíme kameru k FirstPersonCenter
-                cam.transform.localPosition = Vector3.zero; // Kamera pøesnì na pozici FirstPersonCenter
-                cam.transform.localRotation = Quaternion.identity; // Reset rotace kamery
-            }
-            else
-            {
-                cam.transform.SetParent(cameraCenter.transform); // Pøipojení zpìt k CameraCenter
-                cam.transform.localPosition = camDist; // Pùvodní pozice kamery
-                cam.transform.localRotation = Quaternion.identity; // Reset rotace
-            }
-        }
-
-        if (isFirstPerson)
-        {
-            HandleFirstPersonView();
+            HandleCameraTransition();
         }
         else
         {
-            HandleThirdPersonView();
+            if (isFirstPerson)
+            {
+                HandleFirstPersonView();
+            }
+            else
+            {
+                HandleThirdPersonView();
+            }
+        }
+    }
+
+    public void EnterFirstPersonView()
+    {
+        if (!isFirstPerson && !isTransitioning)
+        {
+            isFirstPerson = true;
+            StartCameraTransition(firstPersonCenter.transform.position, firstPersonCenter.transform.rotation);
+        }
+    }
+
+    public void EnterThirdPersonView()
+    {
+        if (isFirstPerson && !isTransitioning)
+        {
+            isFirstPerson = false;
+            Vector3 targetPosition = character.transform.position + (character.transform.forward * camDist.z) + new Vector3(0, yOffset, 0);
+            StartCameraTransition(targetPosition, character.transform.rotation);
+        }
+    }
+
+    // Spustí pøechod kamery
+    private void StartCameraTransition(Vector3 targetPosition, Quaternion targetRotation)
+    {
+        isTransitioning = true;
+        transitionProgress = 0f;
+
+        startCamPos = cam.transform.position;
+        startCamRot = cam.transform.rotation;
+
+        targetCamPos = targetPosition;
+        targetCamRot = targetRotation;
+    }
+
+    // Plynulý pøechod kamery pomocí interpolace
+    private void HandleCameraTransition()
+    {
+        transitionProgress += Time.deltaTime / transitionDuration;
+
+        cam.transform.position = Vector3.Lerp(startCamPos, targetCamPos, transitionProgress);
+        cam.transform.rotation = Quaternion.Lerp(startCamRot, targetCamRot, transitionProgress);
+
+        if (transitionProgress >= 1f)
+        {
+            isTransitioning = false; // Pøechod dokonèen
         }
     }
 
@@ -99,14 +142,21 @@ public class CameraController : MonoBehaviour
 
     void HandleThirdPersonView()
     {
-        // Pozice a otáèení CameraCenter dle postavy
-        var position1 = character.transform.position;
-        cameraCenter.transform.position = new Vector3(position1.x, position1.y + yOffset, position1.z);
+        // Kamera je nyní za postavou a sleduje její pozici
+        Vector3 desiredPosition = character.transform.position + (character.transform.forward * camDist.z) + new Vector3(0, yOffset, 0);
+        cam.transform.position = desiredPosition;
 
-        var rotation = cameraCenter.transform.rotation;
-        rotation = Quaternion.Euler(rotation.eulerAngles.x - Input.GetAxis("Mouse Y") * sensitivity / 2,
-            rotation.eulerAngles.y + Input.GetAxis("Mouse X") * sensitivity, rotation.eulerAngles.z);
-        cameraCenter.transform.rotation = rotation;
+        cameraCenter.transform.position = character.transform.position + new Vector3(0, yOffset, 0);
+
+        // Otáèení kamery kolem postavy
+        yaw += Input.GetAxis("Mouse X") * sensitivity;
+        pitch -= Input.GetAxis("Mouse Y") * sensitivity;
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        cameraCenter.transform.rotation = Quaternion.Euler(pitch, yaw, 0);
+
+        cam.transform.localPosition = camDist;
+        cam.transform.rotation = cameraCenter.transform.rotation;
 
         if (Input.GetAxis("Mouse ScrollWheel") != 0f)
         {

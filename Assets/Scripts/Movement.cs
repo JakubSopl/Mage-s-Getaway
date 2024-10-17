@@ -38,9 +38,10 @@ public class Movement : MonoBehaviour
 
         // Ovìøíme, jestli jsme v režimu první osoby
         bool isFirstPerson = cameraController.isFirstPerson;
+        bool isTransitioning = cameraController.isTransitioning;
 
         // Pokud jsme v první osobì, povolíme pouze dopøedný pohyb pomocí klávesy "W"
-        if (isFirstPerson)
+        if (isFirstPerson || isTransitioning)
         {
             h = 0; // Zakážeme horizontální pohyb (A a D)
             z = Mathf.Clamp(z, 0, 1); // Povolíme pouze dopøedný pohyb (W), zakážeme pohyb vzad (S)
