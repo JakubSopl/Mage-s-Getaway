@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI; // Pøidáno pro práci s UI
 
 public class CameraController : MonoBehaviour
 {
@@ -19,36 +20,46 @@ public class CameraController : MonoBehaviour
     public float collisionSensitivity = 2.5f;
 
     public bool isFirstPerson = false;
-    public GameObject firstPersonCenter; // Objekt za hlavou hráèe pro faux first-person view
+    public GameObject firstPersonCenter; 
 
     private float yaw;
     private float pitch;
-    public float minPitch;   // Maximální sklon dolù
-    public float maxPitch;    // Maximální sklon nahoru
+    public float minPitch;
+    public float maxPitch;
 
     private float smoothYaw;
     private float smoothPitch;
-    public float smoothTime = 0.1f; // Èas pro hladké pøechody
+    public float smoothTime = 0.1f; 
 
-    // Pøidány promìnné pro animaci pøepnutí kamery
     public bool isTransitioning = false;
     private float transitionProgress = 0f;
-    public float transitionDuration = 1.0f; // Délka pøechodu (v sekundách)
+    public float transitionDuration = 0.3f; 
 
     private Vector3 startCamPos;
     private Quaternion startCamRot;
     private Vector3 targetCamPos;
     private Quaternion targetCamRot;
 
+    // Pøidáno: Reference na UI Image pro èerný obrázek
+    public Image fadeImage;
+
     void Start()
     {
-        camDist = new Vector3(0, yOffset, -zoomDefault); // Nastavení defaultní pozice kamery ve tøetí osobì
+        camDist = new Vector3(0, yOffset, -zoomDefault); 
         zoomDistance = zoomDefault;
         Cursor.visible = false;
         yaw = character.transform.eulerAngles.y;
         pitch = cam.transform.eulerAngles.x;
         smoothYaw = yaw;
         smoothPitch = pitch;
+
+        // Nastav alfa na èerném obrázku na 0 (úplnì prùhledný)
+        if (fadeImage != null)
+        {
+            Color fadeColor = fadeImage.color;
+            fadeColor.a = 0;
+            fadeImage.color = fadeColor;
+        }
     }
 
     void Update()
@@ -89,7 +100,6 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    // Spustí pøechod kamery
     private void StartCameraTransition(Vector3 targetPosition, Quaternion targetRotation)
     {
         isTransitioning = true;
@@ -100,64 +110,85 @@ public class CameraController : MonoBehaviour
 
         targetCamPos = targetPosition;
         targetCamRot = targetRotation;
+
+        // Reset alfa na 0 pøi zaèátku pøechodu
+        if (fadeImage != null)
+        {
+            Color fadeColor = fadeImage.color;
+            fadeColor.a = 0;
+            fadeImage.color = fadeColor;
+        }
     }
 
-    // Plynulý pøechod kamery pomocí interpolace
     private void HandleCameraTransition()
     {
         transitionProgress += Time.deltaTime / transitionDuration;
 
+        // Lerp pozice a rotace kamery
         cam.transform.position = Vector3.Lerp(startCamPos, targetCamPos, transitionProgress);
         cam.transform.rotation = Quaternion.Lerp(startCamRot, targetCamRot, transitionProgress);
+
+        // Zvyšuj alfa èerného obrázku bìhem pøechodu
+        if (fadeImage != null)
+        {
+            Color fadeColor = fadeImage.color;
+            fadeColor.a = Mathf.Lerp(0, 1, transitionProgress); // Plynulý nárùst alfa od 0 do 1
+            fadeImage.color = fadeColor;
+        }
 
         if (transitionProgress >= 1f)
         {
             isTransitioning = false; // Pøechod dokonèen
+
+            // Nastavit alfa èerného obrázku zpìt na 0 (zmizení)
+            if (fadeImage != null)
+            {
+                Color fadeColor = fadeImage.color;
+                fadeColor.a = 0;
+                fadeImage.color = fadeColor;
+            }
         }
     }
 
+
     void HandleFirstPersonView()
     {
-        // Kamera bude pevnì za postavou, ne uvnitø ní
         cam.transform.position = firstPersonCenter.transform.position;
         cam.transform.rotation = firstPersonCenter.transform.rotation;
 
-        // Volný pohyb kamery (nahoru/dolù a volnì doleva/doprava)
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
 
-        // Omezit rotaci nahoru a dolù
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
-        // Použít interpolaci pro hladší pøechod rotace
         smoothYaw = Mathf.Lerp(smoothYaw, yaw, smoothTime);
         smoothPitch = Mathf.Lerp(smoothPitch, pitch, smoothTime);
 
-        // Nastavit novou rotaci kamery
         firstPersonCenter.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
-
-        // Hráè se otáèí podle smìru, kam se chce pohybovat
         character.transform.rotation = Quaternion.Euler(0, smoothYaw, 0);
     }
 
     void HandleThirdPersonView()
     {
-        // Kamera je nyní za postavou a sleduje její pozici
+        // Nastavení pozice kamery za postavou
         Vector3 desiredPosition = character.transform.position + (character.transform.forward * camDist.z) + new Vector3(0, yOffset, 0);
         cam.transform.position = desiredPosition;
 
+        // Umístìní støedu kamery na pozici postavy
         cameraCenter.transform.position = character.transform.position + new Vector3(0, yOffset, 0);
 
-        // Otáèení kamery kolem postavy
+        // Rotace kamery pomocí myši
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
         cameraCenter.transform.rotation = Quaternion.Euler(pitch, yaw, 0);
 
+        // Nastavení posunu kamery
         cam.transform.localPosition = camDist;
         cam.transform.rotation = cameraCenter.transform.rotation;
 
+        // Detekce koleèka myši pro zoom
         if (Input.GetAxis("Mouse ScrollWheel") != 0f)
         {
             var scrollAmount = Input.GetAxis("Mouse ScrollWheel") * scrollSensitivity;
@@ -173,11 +204,16 @@ public class CameraController : MonoBehaviour
 
         cam.transform.localPosition = camDist;
 
+        // Vytvoøíme bezpeènostní buffer, aby kamera nereagovala tìsnì pøed pøekážkou
+        float preCollisionBuffer = 1f; // Pøedstih pro zaèátek pøibližování
+
+        // Vytvoøíme pomocný objekt pro kontrolu kolize
         GameObject obj = new GameObject();
         obj.transform.SetParent(cam.transform.parent);
         var position = cam.transform.localPosition;
-        obj.transform.localPosition = new Vector3(position.x, position.y, position.z - collisionSensitivity);
+        obj.transform.localPosition = new Vector3(position.x, position.y, position.z - collisionSensitivity - preCollisionBuffer); // Buffer pro pøiblížení
 
+        // Detekujeme kolizi s objektem pøed kamerou
         if (Physics.Linecast(cameraCenter.transform.position, obj.transform.position, out _camHit))
         {
             var transform1 = cam.transform;
@@ -187,11 +223,14 @@ public class CameraController : MonoBehaviour
             transform1.localPosition = localPosition;
         }
 
+        // Znièení pomocného objektu po kontrole
         Destroy(obj);
 
+        // Zajištìní, aby kamera nikdy neprošla zdí ani pøi pøiblížení
         if (cam.transform.localPosition.z > -1f)
         {
             cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, cam.transform.localPosition.y, -1f);
         }
     }
+
 }
