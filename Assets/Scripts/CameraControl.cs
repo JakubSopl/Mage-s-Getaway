@@ -1,5 +1,5 @@
 using UnityEngine;
-using UnityEngine.UI; // Pøidáno pro práci s UI
+using UnityEngine.UI;
 
 public class CameraController : MonoBehaviour
 {
@@ -40,7 +40,6 @@ public class CameraController : MonoBehaviour
     private Vector3 targetCamPos;
     private Quaternion targetCamRot;
 
-    // Pøidáno: Reference na UI Image pro èerný obrázek
     public Image fadeImage;
 
     void Start()
@@ -53,7 +52,6 @@ public class CameraController : MonoBehaviour
         smoothYaw = yaw;
         smoothPitch = pitch;
 
-        // Nastav alfa na èerném obrázku na 0 (úplnì prùhledný)
         if (fadeImage != null)
         {
             Color fadeColor = fadeImage.color;
@@ -111,7 +109,6 @@ public class CameraController : MonoBehaviour
         targetCamPos = targetPosition;
         targetCamRot = targetRotation;
 
-        // Reset alfa na 0 pøi zaèátku pøechodu
         if (fadeImage != null)
         {
             Color fadeColor = fadeImage.color;
@@ -124,23 +121,20 @@ public class CameraController : MonoBehaviour
     {
         transitionProgress += Time.deltaTime / transitionDuration;
 
-        // Lerp pozice a rotace kamery
         cam.transform.position = Vector3.Lerp(startCamPos, targetCamPos, transitionProgress);
         cam.transform.rotation = Quaternion.Lerp(startCamRot, targetCamRot, transitionProgress);
 
-        // Zvyšuj alfa èerného obrázku bìhem pøechodu
         if (fadeImage != null)
         {
             Color fadeColor = fadeImage.color;
-            fadeColor.a = Mathf.Lerp(0, 1, transitionProgress); // Plynulý nárùst alfa od 0 do 1
+            fadeColor.a = Mathf.Lerp(0, 1, transitionProgress);
             fadeImage.color = fadeColor;
         }
 
         if (transitionProgress >= 1f)
         {
-            isTransitioning = false; // Pøechod dokonèen
+            isTransitioning = false;
 
-            // Nastavit alfa èerného obrázku zpìt na 0 (zmizení)
             if (fadeImage != null)
             {
                 Color fadeColor = fadeImage.color;
@@ -153,42 +147,62 @@ public class CameraController : MonoBehaviour
 
     void HandleFirstPersonView()
     {
+        // Nastavení základní pozice kamery na firstPersonCenter
         cam.transform.position = firstPersonCenter.transform.position;
         cam.transform.rotation = firstPersonCenter.transform.rotation;
 
+        // Zpracování rotace kamery pomocí myši
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
-
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
         smoothYaw = Mathf.Lerp(smoothYaw, yaw, smoothTime);
         smoothPitch = Mathf.Lerp(smoothPitch, pitch, smoothTime);
 
+        // Aktualizace rotace firstPersonCenter a postavy
         firstPersonCenter.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
         character.transform.rotation = Quaternion.Euler(0, smoothYaw, 0);
+
+        // Buffer pro detekci kolize pøed skuteèným bodem kolize
+        float preCollisionBuffer = 0.5f; // Nastavte hodnotu podle potøeby
+
+        // Výchozí cílová pozice kamery s pøedkolizním bufferem
+        Vector3 targetPosition = firstPersonCenter.transform.position - firstPersonCenter.transform.forward * preCollisionBuffer;
+
+        // Kolizní detekce mezi hráèem a cílovou pozicí s bufferem
+        if (Physics.Linecast(character.transform.position + Vector3.up * yOffset, targetPosition, out _camHit))
+        {
+            // Pokud je detekována kolize, kamera se pøiblíží ke hráèi
+            Vector3 collisionPoint = _camHit.point + _camHit.normal * collisionSensitivity;
+
+            // Zajištìní, že kamera zùstane nad zemí a drží výšku
+            cam.transform.position = new Vector3(collisionPoint.x, Mathf.Max(collisionPoint.y, character.transform.position.y + yOffset), collisionPoint.z);
+        }
+        else
+        {
+            // Pokud není detekována kolize, kamera se nastaví na výchozí pozici za hráèem
+            cam.transform.position = firstPersonCenter.transform.position;
+        }
     }
+
+
 
     void HandleThirdPersonView()
     {
-        // Nastavení pozice kamery za postavou
         Vector3 desiredPosition = character.transform.position + (character.transform.forward * camDist.z) + new Vector3(0, yOffset, 0);
         cam.transform.position = desiredPosition;
 
-        // Umístìní støedu kamery na pozici postavy
         cameraCenter.transform.position = character.transform.position + new Vector3(0, yOffset, 0);
 
-        // Rotace kamery pomocí myši
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
         cameraCenter.transform.rotation = Quaternion.Euler(pitch, yaw, 0);
 
-        // Nastavení posunu kamery
         cam.transform.localPosition = camDist;
         cam.transform.rotation = cameraCenter.transform.rotation;
 
-        // Detekce koleèka myši pro zoom
         if (Input.GetAxis("Mouse ScrollWheel") != 0f)
         {
             var scrollAmount = Input.GetAxis("Mouse ScrollWheel") * scrollSensitivity;
@@ -204,16 +218,13 @@ public class CameraController : MonoBehaviour
 
         cam.transform.localPosition = camDist;
 
-        // Vytvoøíme bezpeènostní buffer, aby kamera nereagovala tìsnì pøed pøekážkou
-        float preCollisionBuffer = 1f; // Pøedstih pro zaèátek pøibližování
+        float preCollisionBuffer = 1f; 
 
-        // Vytvoøíme pomocný objekt pro kontrolu kolize
         GameObject obj = new GameObject();
         obj.transform.SetParent(cam.transform.parent);
         var position = cam.transform.localPosition;
         obj.transform.localPosition = new Vector3(position.x, position.y, position.z - collisionSensitivity - preCollisionBuffer); // Buffer pro pøiblížení
 
-        // Detekujeme kolizi s objektem pøed kamerou
         if (Physics.Linecast(cameraCenter.transform.position, obj.transform.position, out _camHit))
         {
             var transform1 = cam.transform;
@@ -223,10 +234,8 @@ public class CameraController : MonoBehaviour
             transform1.localPosition = localPosition;
         }
 
-        // Znièení pomocného objektu po kontrole
         Destroy(obj);
 
-        // Zajištìní, aby kamera nikdy neprošla zdí ani pøi pøiblížení
         if (cam.transform.localPosition.z > -1f)
         {
             cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, cam.transform.localPosition.y, -1f);
