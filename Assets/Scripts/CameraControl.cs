@@ -147,43 +147,37 @@ public class CameraController : MonoBehaviour
 
     void HandleFirstPersonView()
     {
-        // Nastavení základní pozice kamery na firstPersonCenter
-        cam.transform.position = firstPersonCenter.transform.position;
-        cam.transform.rotation = firstPersonCenter.transform.rotation;
-
-        // Zpracování rotace kamery pomocí myši
+        // Nastavení rotace kamery podle myši
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
-        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);  // Omezení úhlu pohledu nahoru a dolù
 
         smoothYaw = Mathf.Lerp(smoothYaw, yaw, smoothTime);
         smoothPitch = Mathf.Lerp(smoothPitch, pitch, smoothTime);
 
-        // Aktualizace rotace firstPersonCenter a postavy
-        firstPersonCenter.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
+        // Nastavení rotace postavy horizontálnì a kamery vertikálnì
         character.transform.rotation = Quaternion.Euler(0, smoothYaw, 0);
+        firstPersonCenter.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
 
-        // Buffer pro detekci kolize pøed skuteèným bodem kolize
-        float preCollisionBuffer = 0.5f; // Nastavte hodnotu podle potøeby
+        // Výchozí pozice kamery na pozici firstPersonCenter
+        Vector3 targetPosition = firstPersonCenter.transform.position;
 
-        // Výchozí cílová pozice kamery s pøedkolizním bufferem
-        Vector3 targetPosition = firstPersonCenter.transform.position - firstPersonCenter.transform.forward * preCollisionBuffer;
-
-        // Kolizní detekce mezi hráèem a cílovou pozicí s bufferem
+        // Detekce kolize na trase mezi hráèem a cílovou pozicí kamery
         if (Physics.Linecast(character.transform.position + Vector3.up * yOffset, targetPosition, out _camHit))
         {
-            // Pokud je detekována kolize, kamera se pøiblíží ke hráèi
-            Vector3 collisionPoint = _camHit.point + _camHit.normal * collisionSensitivity;
-
-            // Zajištìní, že kamera zùstane nad zemí a drží výšku
-            cam.transform.position = new Vector3(collisionPoint.x, Mathf.Max(collisionPoint.y, character.transform.position.y + yOffset), collisionPoint.z);
+            // Pokud je detekována kolize, posuneme kameru blíž k hráèi, ale stále na pozici firstPersonCenter
+            cam.transform.position = _camHit.point + _camHit.normal * 0.1f;
         }
         else
         {
-            // Pokud není detekována kolize, kamera se nastaví na výchozí pozici za hráèem
-            cam.transform.position = firstPersonCenter.transform.position;
+            // Pokud není detekována kolize, nastavíme kameru na pozici firstPersonCenter
+            cam.transform.position = targetPosition;
         }
+
+        // Kamera sleduje pohled hráèe s respektováním vertikální rotace
+        cam.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
     }
+
 
 
 

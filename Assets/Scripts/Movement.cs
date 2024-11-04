@@ -21,11 +21,14 @@ public class Movement : MonoBehaviour
 
     public float turnSmoothing = 0.1f;
     public float speedDampTime = 0.1f;
+    public float groundCheckDistance = 0.3f; // Adjust this to match the terrain
 
     void Update()
     {
-        groundedPlayer = controller.isGrounded;
+        // Use Raycast to check if grounded and ensure player stays grounded on slopes
+        groundedPlayer = controller.isGrounded || IsGroundedByRaycast();
 
+        // Reset vertical velocity if grounded and not jumping
         if (groundedPlayer && playerVelocity.y < 0)
         {
             playerVelocity.y = 0f;
@@ -52,7 +55,6 @@ public class Movement : MonoBehaviour
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
             Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-
             float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : playerSpeed;
             controller.Move(moveDirection * speed * Time.deltaTime);
         }
@@ -65,22 +67,27 @@ public class Movement : MonoBehaviour
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
+        // Jump logic with gravity control
         if (Input.GetButtonDown("Jump") && groundedPlayer)
         {
-            playerVelocity.y += Mathf.Sqrt(jumpSpeed * -3.0f * gravityValue);
+            playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue); // Set jump velocity
+            groundedPlayer = false; // Temporarily set grounded to false for jump to take effect
         }
 
+        // Apply gravity continuously
         playerVelocity.y += gravityValue * Time.deltaTime;
+
+        // If grounded and not jumping, keep the player grounded on slopes
+        if (groundedPlayer && playerVelocity.y <= 0)
+        {
+            StickToGround();
+        }
+
+        // Move character based on velocity (including vertical movement from gravity and jumps)
         controller.Move(playerVelocity * Time.deltaTime);
 
-        if (groundedPlayer)
-        {
-            animator.SetBool("fall", false);
-        }
-        else
-        {
-            animator.SetBool("fall", true);
-        }
+        // Update animator states based on grounded status
+        animator.SetBool("fall", !groundedPlayer);
 
         if (move.magnitude > 0 && Input.GetKey(KeyCode.LeftShift))
         {
@@ -89,6 +96,27 @@ public class Movement : MonoBehaviour
         else
         {
             animator.SetBool("run", false);
+        }
+    }
+
+    private bool IsGroundedByRaycast()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
+        {
+            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+            return slopeAngle <= controller.slopeLimit;
+        }
+        return false;
+    }
+
+    private void StickToGround()
+    {
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
+        {
+            Vector3 targetPosition = new Vector3(transform.position.x, hit.point.y, transform.position.z);
+            controller.Move(targetPosition - transform.position);
         }
     }
 }
