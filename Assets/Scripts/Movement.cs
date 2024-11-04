@@ -67,12 +67,13 @@ public class Movement : MonoBehaviour
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
-        // Jump logic with gravity control
-        if (Input.GetButtonDown("Jump") && groundedPlayer)
+        // Jump logic with slope angle consideration
+        if (Input.GetButtonDown("Jump") && groundedPlayer && IsGroundedByRaycast())
         {
             playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue); // Set jump velocity
             groundedPlayer = false; // Temporarily set grounded to false for jump to take effect
         }
+
 
         // Apply gravity continuously
         playerVelocity.y += gravityValue * Time.deltaTime;
@@ -105,7 +106,14 @@ public class Movement : MonoBehaviour
         if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
         {
             float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
-            return slopeAngle <= controller.slopeLimit;
+
+            // Check if the slope is too steep
+            if (slopeAngle > controller.slopeLimit)
+            {
+                return false; // Not grounded if on a too-steep slope
+            }
+
+            return true;
         }
         return false;
     }

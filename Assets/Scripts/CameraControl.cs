@@ -224,7 +224,7 @@ public class CameraController : MonoBehaviour
             var transform1 = cam.transform;
             transform1.position = _camHit.point;
             var localPosition = transform1.localPosition;
-            localPosition = new Vector3(localPosition.x, localPosition.y, localPosition.z + collisionSensitivity);
+            localPosition = new Vector3(localPosition.x, localPosition.y + 0.5f, localPosition.z + collisionSensitivity);
             transform1.localPosition = localPosition;
         }
 
