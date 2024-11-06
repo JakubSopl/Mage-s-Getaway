@@ -8,31 +8,44 @@ public class Movement : MonoBehaviour
     public CharacterController controller;
 
     public Transform Cam;
-
     public CameraController cameraController;
 
     private Vector3 playerVelocity;
     private bool groundedPlayer;
+    private bool wasGroundedLastFrame = true; // Track previous grounded state
     public float playerSpeed = 2f;
     public float runSpeed = 4f;
     public float jumpSpeed = 1.5f;
     public float gravityValue = -10f;
     public float turnSmoothness;
-
     public float turnSmoothing = 0.1f;
     public float speedDampTime = 0.1f;
-    public float groundCheckDistance = 0.3f; // Adjust this to match the terrain
+    public float groundCheckDistance = 0.3f;
+
+    // Audio
+    public AudioSource audioSource;
+    public AudioClip walkClip;
+    public AudioClip jumpClip;
+    public AudioClip landClip;
+
+    private bool isSprinting = false;
+    private bool isWalkingSoundPlaying = false;
+    // Variables for jump cooldown
+    private float jumpCooldown = 1.5f;
+    private float lastJumpTime = -1.5f;
 
     void Update()
     {
-        // Use Raycast to check if grounded and ensure player stays grounded on slopes
         groundedPlayer = controller.isGrounded || IsGroundedByRaycast();
 
-        // Reset vertical velocity if grounded and not jumping
-        if (groundedPlayer && playerVelocity.y < 0)
+        // Play landing sound immediately when grounded after a jump
+        if (groundedPlayer && !wasGroundedLastFrame)
         {
-            playerVelocity.y = 0f;
+            PlaySound(landClip);
         }
+
+        // Update the grounded state tracker
+        wasGroundedLastFrame = groundedPlayer;
 
         float h = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
@@ -55,42 +68,53 @@ public class Movement : MonoBehaviour
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
             Vector3 moveDirection = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
-            float speed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : playerSpeed;
+            isSprinting = Input.GetKey(KeyCode.LeftShift);
+            float speed = isSprinting ? runSpeed : playerSpeed;
             controller.Move(moveDirection * speed * Time.deltaTime);
+
+            // Play walking sound, adjusting for sprinting speed
+            if (!isWalkingSoundPlaying)
+            {
+                audioSource.clip = walkClip;
+                audioSource.pitch = isSprinting ? 1.5f : 1f;
+                audioSource.loop = true;
+                audioSource.Play();
+                isWalkingSoundPlaying = true;
+            }
         }
         else
         {
-            controller.Move(Vector3.zero);
+            if (isWalkingSoundPlaying)
+            {
+                audioSource.Stop();
+                isWalkingSoundPlaying = false;
+            }
         }
 
-        float targetSpeed = Input.GetKey(KeyCode.LeftShift) ? runSpeed : playerSpeed;
+        float targetSpeed = isSprinting ? runSpeed : playerSpeed;
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
-        // Jump logic with slope angle consideration
-        if (Input.GetButtonDown("Jump") && groundedPlayer && IsGroundedByRaycast())
+        // Jump logic with cooldown
+        if (Input.GetButtonDown("Jump") && groundedPlayer && IsGroundedByRaycast() && Time.time - lastJumpTime > jumpCooldown)
         {
-            playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue); // Set jump velocity
-            groundedPlayer = false; // Temporarily set grounded to false for jump to take effect
+            playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue);
+            groundedPlayer = false;
+            PlaySound(jumpClip); // Play jump sound immediately
+            lastJumpTime = Time.time; // Update last jump time
         }
 
-
-        // Apply gravity continuously
         playerVelocity.y += gravityValue * Time.deltaTime;
 
-        // If grounded and not jumping, keep the player grounded on slopes
         if (groundedPlayer && playerVelocity.y <= 0)
         {
             StickToGround();
         }
 
-        // Move character based on velocity (including vertical movement from gravity and jumps)
         controller.Move(playerVelocity * Time.deltaTime);
-
-        // Update animator states based on grounded status
         animator.SetBool("fall", !groundedPlayer);
 
-        if (move.magnitude > 0 && Input.GetKey(KeyCode.LeftShift))
+        if (move.magnitude > 0 && isSprinting)
         {
             animator.SetBool("run", true);
         }
@@ -100,19 +124,18 @@ public class Movement : MonoBehaviour
         }
     }
 
+
+
     private bool IsGroundedByRaycast()
     {
         RaycastHit hit;
         if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
         {
             float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
-
-            // Check if the slope is too steep
             if (slopeAngle > controller.slopeLimit)
             {
-                return false; // Not grounded if on a too-steep slope
+                return false;
             }
-
             return true;
         }
         return false;
@@ -125,6 +148,35 @@ public class Movement : MonoBehaviour
         {
             Vector3 targetPosition = new Vector3(transform.position.x, hit.point.y, transform.position.z);
             controller.Move(targetPosition - transform.position);
+        }
+    }
+
+    private void PlaySound(AudioClip clip)
+    {
+        audioSource.Stop();
+        audioSource.clip = clip;
+
+        if (clip == walkClip)
+        {
+            audioSource.pitch = isSprinting ? 1.5f : 1f; // Adjust pitch for walking sound based on sprint
+            audioSource.loop = true; // Loop only for walking sound
+        }
+        else
+        {
+            audioSource.pitch = 1f; // Ensure standard pitch for non-walking sounds like jump and land
+            audioSource.loop = false;
+        }
+
+        audioSource.Play();
+    }
+
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        // Ensure landing sound plays immediately on contact
+        if (!groundedPlayer && controller.isGrounded && hit.normal.y > 0.5f)
+        {
+            PlaySound(landClip);
         }
     }
 }
