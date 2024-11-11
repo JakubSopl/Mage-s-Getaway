@@ -22,10 +22,10 @@ namespace Ursaanimation.CubicFarmAnimals
         // Movement speed variables
         public float walkSpeed = 1f;
         public float runSpeed = 2f;
-        public float moveDuration = 2f; // Duration of running or trotting before stopping
-        public float idleDuration = 8f; // Duration for idle animation
-        public float sitDuration = 8f; // Duration for sitting animation
-        public float shortIdleDuration = 1f; // Short idle time before turning
+        public float moveDuration = 2f;
+        public float idleDuration = 8f;
+        public float sitDuration = 8f;
+        public float shortIdleDuration = 1f;
 
         // Sit and stand control
         private bool isSitting;
@@ -33,7 +33,7 @@ namespace Ursaanimation.CubicFarmAnimals
         void Start()
         {
             animator = GetComponent<Animator>();
-            StartCoroutine(NPCBehaviorRoutine()); // Start the main NPC behavior coroutine
+            StartCoroutine(NPCBehaviorRoutine());
         }
 
         void Update()
@@ -53,7 +53,6 @@ namespace Ursaanimation.CubicFarmAnimals
 
         void MoveCharacter()
         {
-            // Move forward based on the current animation state
             if (animator.GetCurrentAnimatorStateInfo(0).IsName(walkForwardAnimation))
             {
                 transform.Translate(Vector3.forward * walkSpeed * Time.deltaTime);
@@ -64,7 +63,7 @@ namespace Ursaanimation.CubicFarmAnimals
             }
             else if (animator.GetCurrentAnimatorStateInfo(0).IsName(trotAnimation))
             {
-                transform.Translate(Vector3.forward * (walkSpeed * 0.75f) * Time.deltaTime); // Trot speed
+                transform.Translate(Vector3.forward * (walkSpeed * 0.75f) * Time.deltaTime);
             }
         }
 
@@ -72,110 +71,97 @@ namespace Ursaanimation.CubicFarmAnimals
         {
             while (true)
             {
-                // Step 1: Sit or idle for 8 seconds
                 if (isSitting)
                 {
-                    yield return StandUpForDuration(); // Ensure NPC stands up before any other action
-                }
-                else
-                {
-                    yield return SitOrIdleForDuration();
+                    yield return StandUpForDuration();
                 }
 
-                // Step 2: Run for 2 seconds, then go to either idle or trot
+                yield return SitOrIdleForDuration();
                 yield return RunForDuration();
-
-                // Step 3: Idle briefly after trot, then turn and walk
                 yield return IdleBeforeTurn();
-
-                // Step 4: Go back to sit or idle for 8 seconds
                 yield return SitOrIdleForDuration();
             }
         }
 
         IEnumerator RunForDuration()
         {
-            animator.Play(runForwardAnimation);
-            yield return new WaitForSeconds(moveDuration); // Run for 2 seconds
+            animator.CrossFade(runForwardAnimation, 0.1f);
+            yield return new WaitForSeconds(moveDuration);
 
-            // After running, go to either idle or trot
             int nextState = Random.Range(0, 2);
             if (nextState == 0)
             {
-                yield return IdleForDuration(); // Go to idle
+                yield return IdleForDuration();
             }
             else
             {
-                animator.Play(trotAnimation); // Go to trot
-                yield return new WaitForSeconds(moveDuration); // Trot for 2 seconds
+                animator.CrossFade(trotAnimation, 0.1f);
+                yield return new WaitForSeconds(moveDuration);
             }
         }
 
         IEnumerator IdleBeforeTurn()
         {
-            // Play idle for a short duration to create a pause before turning
-            animator.Play("idle");
-            yield return new WaitForSeconds(shortIdleDuration); // Short idle duration before turn
+            animator.CrossFade("idle", 0.1f);
+            yield return new WaitForSeconds(shortIdleDuration);
 
-            // Turn in a random direction, then start walking
             yield return TurnAndWalk();
         }
 
         IEnumerator TurnAndWalk()
         {
-            int turnDirection = Random.Range(0, 2); // 0 for left, 1 for right
+            int turnDirection = Random.Range(0, 2);
 
             if (turnDirection == 0)
             {
-                animator.Play(turn90LAnimation);
-                transform.Rotate(Vector3.up, -90); // Rotate the NPC 90 degrees to the left
+                animator.CrossFade(turn90LAnimation, 0.1f);
+                transform.Rotate(Vector3.up, -90);
             }
             else
             {
-                animator.Play(turn90RAnimation);
-                transform.Rotate(Vector3.up, 90); // Rotate the NPC 90 degrees to the right
+                animator.CrossFade(turn90RAnimation, 0.1f);
+                transform.Rotate(Vector3.up, 90);
             }
 
-            yield return new WaitForSeconds(1f); // Allow time for the turn animation
+            yield return new WaitForSeconds(1f);
 
-            // Start walking immediately after turning
-            animator.Play(walkForwardAnimation);
-            yield return new WaitForSeconds(moveDuration); // Walk for 2 seconds
+            animator.CrossFade(walkForwardAnimation, 0.1f);
+            yield return new WaitForSeconds(moveDuration);
         }
 
         IEnumerator SitOrIdleForDuration()
         {
-            int idleOrSit = Random.Range(0, 2); // 0 for idle, 1 for sit
+            int idleOrSit = Random.Range(0, 2);
 
             if (idleOrSit == 0)
             {
-                animator.Play("idle");
-                yield return new WaitForSeconds(idleDuration); // Idle for 8 seconds
+                animator.CrossFade("idle", 0.1f);
+                yield return new WaitForSeconds(idleDuration);
             }
-            else
+            else if (!isSitting)
             {
-                yield return SitDownForDuration(); // Sit for 8 seconds
+                yield return SitDownForDuration();
             }
         }
 
         IEnumerator SitDownForDuration()
         {
-            animator.Play(standtositAnimation);
+            animator.CrossFade(standtositAnimation, 0.1f);
             isSitting = true;
-            yield return new WaitForSeconds(sitDuration); // Stay sitting for exactly 8 seconds
+            yield return new WaitForSeconds(sitDuration);
         }
 
         IEnumerator StandUpForDuration()
         {
-            animator.Play(sittostandAnimation); // Play stand-up animation
+            animator.CrossFade(sittostandAnimation, 0.1f);
             isSitting = false;
-            yield return new WaitForSeconds(1f); // Allow time for the stand-up animation
+            yield return new WaitForSeconds(1f);
         }
 
         IEnumerator IdleForDuration()
         {
-            animator.Play("idle");
-            yield return new WaitForSeconds(idleDuration); // Stay idle for at least 8 seconds
+            animator.CrossFade("idle", 0.1f);
+            yield return new WaitForSeconds(idleDuration);
         }
     }
 }

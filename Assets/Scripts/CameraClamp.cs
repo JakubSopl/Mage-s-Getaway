@@ -8,6 +8,7 @@ public class CameraClamp : MonoBehaviour
 
     void Update()
     {
+#if UNITY_EDITOR
         // Get current rotation
         var rotation = UnityEditor.TransformUtils.GetInspectorRotation(gameObject.transform);
 
@@ -17,5 +18,6 @@ public class CameraClamp : MonoBehaviour
             // Set x rotation to max rotation and leave rest as is
             UnityEditor.TransformUtils.SetInspectorRotation(gameObject.transform, new Vector3(restrictionAngle, rotation.y, rotation.z));
         }
+#endif
     }
 }
