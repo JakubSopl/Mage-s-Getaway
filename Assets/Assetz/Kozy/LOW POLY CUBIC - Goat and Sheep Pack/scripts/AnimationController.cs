@@ -17,7 +17,10 @@ namespace Ursaanimation.CubicFarmAnimals
         public Transform groundCheck;
         public float groundCheckDistance = 0.2f;
         public LayerMask groundLayer;
+        public LayerMask obstacleLayer; // Pøidáno pro kontrolu pøekážek
+        public float obstacleCheckDistance = 1f; // Nastavení vzdálenosti pro kontrolu pøekážek
         private bool isGrounded;
+        private bool isObstacleAhead;
 
         // Movement speed variables
         public float walkSpeed = 1f;
@@ -39,10 +42,15 @@ namespace Ursaanimation.CubicFarmAnimals
         void Update()
         {
             CheckGroundStatus();
+            CheckForObstacle();
 
-            if (isGrounded)
+            if (isGrounded && !isObstacleAhead)
             {
                 MoveCharacter();
+            }
+            else if (isObstacleAhead)
+            {
+                StartCoroutine(TurnAndWalk()); // Pokud NPC narazí na pøekážku, otoèí se
             }
         }
 
@@ -51,21 +59,35 @@ namespace Ursaanimation.CubicFarmAnimals
             isGrounded = Physics.Raycast(groundCheck.position, Vector3.down, groundCheckDistance, groundLayer);
         }
 
+        void CheckForObstacle()
+        {
+            Vector3 obstacleRayStart = groundCheck.position + Vector3.up * 0.5f;
+            isObstacleAhead = Physics.Raycast(obstacleRayStart, transform.forward, obstacleCheckDistance, obstacleLayer);
+        }
+
         void MoveCharacter()
         {
-            if (animator.GetCurrentAnimatorStateInfo(0).IsName(walkForwardAnimation))
+            if (!isObstacleAhead) // Pøidej kontrolu na pøekážky i zde
             {
-                transform.Translate(Vector3.forward * walkSpeed * Time.deltaTime);
+                if (animator.GetCurrentAnimatorStateInfo(0).IsName(walkForwardAnimation))
+                {
+                    transform.Translate(Vector3.forward * walkSpeed * Time.deltaTime);
+                }
+                else if (animator.GetCurrentAnimatorStateInfo(0).IsName(runForwardAnimation))
+                {
+                    transform.Translate(Vector3.forward * runSpeed * Time.deltaTime);
+                }
+                else if (animator.GetCurrentAnimatorStateInfo(0).IsName(trotAnimation))
+                {
+                    transform.Translate(Vector3.forward * (walkSpeed * 0.75f) * Time.deltaTime);
+                }
             }
-            else if (animator.GetCurrentAnimatorStateInfo(0).IsName(runForwardAnimation))
+            else
             {
-                transform.Translate(Vector3.forward * runSpeed * Time.deltaTime);
-            }
-            else if (animator.GetCurrentAnimatorStateInfo(0).IsName(trotAnimation))
-            {
-                transform.Translate(Vector3.forward * (walkSpeed * 0.75f) * Time.deltaTime);
+                StartCoroutine(TurnAndWalk()); // Pokud je pøekážka pøíliš blízko, otoèí se
             }
         }
+
 
         IEnumerator NPCBehaviorRoutine()
         {
