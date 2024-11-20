@@ -9,6 +9,8 @@ TagManager:
   - Dirt
   - Wood
   - Water
+  - CameraIgnor
+  - Ocean
   layers:
   - Default
   - TransparentFX

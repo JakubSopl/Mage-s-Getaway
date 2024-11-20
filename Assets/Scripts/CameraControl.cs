@@ -147,39 +147,37 @@ public class CameraController : MonoBehaviour
 
     void HandleFirstPersonView()
     {
-        // Nastavení rotace kamery podle myši
         yaw += Input.GetAxis("Mouse X") * sensitivity;
         pitch -= Input.GetAxis("Mouse Y") * sensitivity;
-        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);  // Omezení úhlu pohledu nahoru a dolù
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
         smoothYaw = Mathf.Lerp(smoothYaw, yaw, smoothTime);
         smoothPitch = Mathf.Lerp(smoothPitch, pitch, smoothTime);
 
-        // Nastavení rotace postavy horizontálnì a kamery vertikálnì
         character.transform.rotation = Quaternion.Euler(0, smoothYaw, 0);
         firstPersonCenter.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
 
-        // Výchozí pozice kamery na pozici firstPersonCenter
         Vector3 targetPosition = firstPersonCenter.transform.position;
 
-        // Detekce kolize na trase mezi hráèem a cílovou pozicí kamery
         if (Physics.Linecast(character.transform.position + Vector3.up * yOffset, targetPosition, out _camHit))
         {
-            // Pokud je detekována kolize, posuneme kameru blíž k hráèi, ale stále na pozici firstPersonCenter
-            cam.transform.position = _camHit.point + _camHit.normal * 0.1f;
+            // Check if the hit object has the "CameraIgnore" tag
+            if (_camHit.collider.CompareTag("CameraIgnor"))
+            {
+                cam.transform.position = targetPosition; // Ignore collision and use target position
+            }
+            else
+            {
+                cam.transform.position = _camHit.point + _camHit.normal * 0.1f; // Adjust for collision
+            }
         }
         else
         {
-            // Pokud není detekována kolize, nastavíme kameru na pozici firstPersonCenter
             cam.transform.position = targetPosition;
         }
 
-        // Kamera sleduje pohled hráèe s respektováním vertikální rotace
         cam.transform.rotation = Quaternion.Euler(smoothPitch, smoothYaw, 0);
     }
-
-
-
 
     void HandleThirdPersonView()
     {
@@ -212,20 +210,24 @@ public class CameraController : MonoBehaviour
 
         cam.transform.localPosition = camDist;
 
-        float preCollisionBuffer = 1f; 
+        float preCollisionBuffer = 1f;
 
         GameObject obj = new GameObject();
         obj.transform.SetParent(cam.transform.parent);
         var position = cam.transform.localPosition;
-        obj.transform.localPosition = new Vector3(position.x, position.y, position.z - collisionSensitivity - preCollisionBuffer); // Buffer pro pøiblížení
+        obj.transform.localPosition = new Vector3(position.x, position.y, position.z - collisionSensitivity - preCollisionBuffer);
 
         if (Physics.Linecast(cameraCenter.transform.position, obj.transform.position, out _camHit))
         {
-            var transform1 = cam.transform;
-            transform1.position = _camHit.point;
-            var localPosition = transform1.localPosition;
-            localPosition = new Vector3(localPosition.x, localPosition.y + 0.5f, localPosition.z + collisionSensitivity);
-            transform1.localPosition = localPosition;
+            // Check if the hit object has the "CameraIgnore" tag
+            if (!_camHit.collider.CompareTag("CameraIgnor"))
+            {
+                var transform1 = cam.transform;
+                transform1.position = _camHit.point;
+                var localPosition = transform1.localPosition;
+                localPosition = new Vector3(localPosition.x, localPosition.y + 0.5f, localPosition.z + collisionSensitivity);
+                transform1.localPosition = localPosition;
+            }
         }
 
         Destroy(obj);
@@ -235,5 +237,6 @@ public class CameraController : MonoBehaviour
             cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, cam.transform.localPosition.y, -1f);
         }
     }
+
 
 }

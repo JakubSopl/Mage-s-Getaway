@@ -1,6 +1,6 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class Movement : MonoBehaviour
 {
@@ -12,7 +12,7 @@ public class Movement : MonoBehaviour
 
     private Vector3 playerVelocity;
     private bool groundedPlayer;
-    private bool wasGroundedLastFrame = true; // Track previous grounded state
+
     public float playerSpeed = 2f;
     public float runSpeed = 4f;
     public float jumpSpeed = 1.5f;
@@ -29,23 +29,23 @@ public class Movement : MonoBehaviour
     public AudioClip landClip;
 
     private bool isSprinting = false;
-    private bool isWalkingSoundPlaying = false;
-    // Variables for jump cooldown
+
     private float jumpCooldown = 1.5f;
     private float lastJumpTime = -1.5f;
+
+    // Respawn
+    public Transform respawnPoint; // Set this to the starting position in the inspector
+    public Image fadeImage; // Assign the blue image here
+    public float fadeDuration = 0.2f;
+
+    private bool isRespawning = false;
+
+    // Detection area
+    public float detectionRadius = 0.1f; // Radius for detecting "Ocean" area
 
     void Update()
     {
         groundedPlayer = controller.isGrounded || IsGroundedByRaycast();
-
-        // Play landing sound immediately when grounded after a jump
-        if (groundedPlayer && !wasGroundedLastFrame)
-        {
-            PlaySound(landClip);
-        }
-
-        // Update the grounded state tracker
-        wasGroundedLastFrame = groundedPlayer;
 
         float h = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
@@ -72,36 +72,17 @@ public class Movement : MonoBehaviour
             float speed = isSprinting ? runSpeed : playerSpeed;
             controller.Move(moveDirection * speed * Time.deltaTime);
 
-            // Play walking sound, adjusting for sprinting speed
-            if (!isWalkingSoundPlaying)
-            {
-                audioSource.clip = walkClip;
-                audioSource.pitch = isSprinting ? 1.5f : 1f;
-                audioSource.loop = true;
-                audioSource.Play();
-                isWalkingSoundPlaying = true;
-            }
-        }
-        else
-        {
-            if (isWalkingSoundPlaying)
-            {
-                audioSource.Stop();
-                isWalkingSoundPlaying = false;
-            }
         }
 
         float targetSpeed = isSprinting ? runSpeed : playerSpeed;
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
-        // Jump logic with cooldown
         if (Input.GetButtonDown("Jump") && groundedPlayer && IsGroundedByRaycast() && Time.time - lastJumpTime > jumpCooldown)
         {
             playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue);
             groundedPlayer = false;
-            PlaySound(jumpClip); // Play jump sound immediately
-            lastJumpTime = Time.time; // Update last jump time
+            lastJumpTime = Time.time;
         }
 
         playerVelocity.y += gravityValue * Time.deltaTime;
@@ -123,6 +104,7 @@ public class Movement : MonoBehaviour
             animator.SetBool("run", false);
         }
     }
+
 
 
 
@@ -151,32 +133,61 @@ public class Movement : MonoBehaviour
         }
     }
 
-    private void PlaySound(AudioClip clip)
+
+    private void OnTriggerEnter(Collider other)
     {
-        audioSource.Stop();
-        audioSource.clip = clip;
-
-        if (clip == walkClip)
+        if (other.CompareTag("Ocean") && !isRespawning)
         {
-            audioSource.pitch = isSprinting ? 1.5f : 1f; // Adjust pitch for walking sound based on sprint
-            audioSource.loop = true; // Loop only for walking sound
+            StartCoroutine(Respawn());
         }
-        else
+    }
+
+    private IEnumerator Respawn()
+    {
+        if (isRespawning) yield break; // Prevent multiple calls
+        isRespawning = true; // Set the flag
+
+        Debug.Log("Respawning player...");
+
+        // Fade-in while the player is falling
+        Color fadeColor = fadeImage.color;
+        float elapsedTime = 0f;
+
+        while (elapsedTime < fadeDuration)
         {
-            audioSource.pitch = 1f; // Ensure standard pitch for non-walking sounds like jump and land
-            audioSource.loop = false;
+            fadeColor.a = Mathf.Lerp(0, 1, elapsedTime / fadeDuration);
+            fadeImage.color = fadeColor;
+            elapsedTime += Time.deltaTime;
+            yield return null;
         }
 
-        audioSource.Play();
+        fadeColor.a = 1f;
+        fadeImage.color = fadeColor;
+
+        // Respawn logic: Move the player to the respawn point
+        Debug.Log("Resetting player position...");
+        Vector3 resetPosition = respawnPoint.position;
+        controller.enabled = false; // Temporarily disable controller for position reset
+        transform.position = resetPosition; // Directly move the player
+        controller.enabled = true; // Re-enable the controller after position reset
+        playerVelocity = Vector3.zero; // Reset velocity to avoid sliding
+
+        // Fade-out logic after respawn
+        elapsedTime = 0f;
+        while (elapsedTime < fadeDuration)
+        {
+            fadeColor.a = Mathf.Lerp(1, 0, elapsedTime / fadeDuration);
+            fadeImage.color = fadeColor;
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        fadeColor.a = 0f;
+        fadeImage.color = fadeColor;
+
+        isRespawning = false; // Allow future respawns
+        Debug.Log("Respawn complete.");
     }
 
 
-    private void OnControllerColliderHit(ControllerColliderHit hit)
-    {
-        // Ensure landing sound plays immediately on contact
-        if (!groundedPlayer && controller.isGrounded && hit.normal.y > 0.5f)
-        {
-            PlaySound(landClip);
-        }
-    }
 }
