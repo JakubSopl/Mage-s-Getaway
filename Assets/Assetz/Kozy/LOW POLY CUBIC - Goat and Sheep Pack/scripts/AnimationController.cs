@@ -6,36 +6,42 @@ namespace Ursaanimation.CubicFarmAnimals
     public class AnimationController : MonoBehaviour
     {
         public Animator animator;
+
+        // Animations
         public string walkForwardAnimation = "walk_forward";
-        public string runForwardAnimation = "run_forward";
+        public string idleAnimation = "idle";
         public string turn90LAnimation = "turn_90_L";
         public string turn90RAnimation = "turn_90_R";
-        public string trotAnimation = "trot_forward";
-        public string sittostandAnimation = "sit_to_stand";
-        public string standtositAnimation = "stand_to_sit";
 
+        // Ground and obstacle checking
         public Transform groundCheck;
         public float groundCheckDistance = 0.2f;
         public LayerMask groundLayer;
-        public LayerMask obstacleLayer; // Pøidáno pro kontrolu pøekážek
-        public float obstacleCheckDistance = 1f; // Nastavení vzdálenosti pro kontrolu pøekážek
+        public LayerMask obstacleLayer;
+        public float obstacleCheckDistance = 1f;
+
+        // Movement settings
+        public float walkSpeed = 1f;
+        public float moveDuration = 2f;
+        public float turnDuration = 0.8f; // Time to complete a 90° turn
+        public float idleDuration = 2f;
+
         private bool isGrounded;
         private bool isObstacleAhead;
-
-        // Movement speed variables
-        public float walkSpeed = 1f;
-        public float runSpeed = 2f;
-        public float moveDuration = 2f;
-        public float idleDuration = 8f;
-        public float sitDuration = 8f;
-        public float shortIdleDuration = 1f;
-
-        // Sit and stand control
-        private bool isSitting;
+        private bool isTurning;
 
         void Start()
         {
-            animator = GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = GetComponent<Animator>();
+            }
+
+            if (groundCheck == null)
+            {
+                Debug.LogError("GroundCheck transform is not assigned!");
+            }
+
             StartCoroutine(NPCBehaviorRoutine());
         }
 
@@ -44,146 +50,112 @@ namespace Ursaanimation.CubicFarmAnimals
             CheckGroundStatus();
             CheckForObstacle();
 
-            if (isGrounded && !isObstacleAhead)
+            if (!isGrounded || isObstacleAhead)
+            {
+                if (!isTurning) // Avoid triggering multiple turns at once
+                {
+                    StartCoroutine(HandleObstacleAndTurn());
+                }
+            }
+            else
             {
                 MoveCharacter();
-            }
-            else if (isObstacleAhead)
-            {
-                StartCoroutine(TurnAndWalk()); // Pokud NPC narazí na pøekážku, otoèí se
             }
         }
 
         void CheckGroundStatus()
         {
-            isGrounded = Physics.Raycast(groundCheck.position, Vector3.down, groundCheckDistance, groundLayer);
+            if (groundCheck != null)
+            {
+                isGrounded = Physics.Raycast(groundCheck.position, Vector3.down, groundCheckDistance, groundLayer);
+            }
         }
 
         void CheckForObstacle()
         {
-            Vector3 obstacleRayStart = groundCheck.position + Vector3.up * 0.5f;
-            isObstacleAhead = Physics.Raycast(obstacleRayStart, transform.forward, obstacleCheckDistance, obstacleLayer);
+            if (groundCheck != null)
+            {
+                Vector3 obstacleRayStart = groundCheck.position + Vector3.up * 0.5f;
+                isObstacleAhead = Physics.Raycast(obstacleRayStart, transform.forward, obstacleCheckDistance, obstacleLayer);
+            }
         }
 
         void MoveCharacter()
         {
-            if (!isObstacleAhead) // Pøidej kontrolu na pøekážky i zde
+            if (!isTurning && animator.GetCurrentAnimatorStateInfo(0).IsName(walkForwardAnimation))
             {
-                if (animator.GetCurrentAnimatorStateInfo(0).IsName(walkForwardAnimation))
-                {
-                    transform.Translate(Vector3.forward * walkSpeed * Time.deltaTime);
-                }
-                else if (animator.GetCurrentAnimatorStateInfo(0).IsName(runForwardAnimation))
-                {
-                    transform.Translate(Vector3.forward * runSpeed * Time.deltaTime);
-                }
-                else if (animator.GetCurrentAnimatorStateInfo(0).IsName(trotAnimation))
-                {
-                    transform.Translate(Vector3.forward * (walkSpeed * 0.75f) * Time.deltaTime);
-                }
-            }
-            else
-            {
-                StartCoroutine(TurnAndWalk()); // Pokud je pøekážka pøíliš blízko, otoèí se
+                transform.Translate(Vector3.forward * walkSpeed * Time.deltaTime);
             }
         }
 
+        IEnumerator HandleObstacleAndTurn()
+        {
+            isTurning = true;
+
+            // Stop and go to idle animation
+            PlayAnimation(idleAnimation);
+            yield return new WaitForSeconds(0.5f); // Pause briefly before turning
+
+            // Determine turn direction
+            int turnDirection = Random.Range(0, 2);
+            string turnAnimation = turnDirection == 0 ? turn90LAnimation : turn90RAnimation;
+
+            // Play turn animation
+            PlayAnimation(turnAnimation);
+
+            // Smoothly rotate NPC
+            float turnAngle = turnDirection == 0 ? -90f : 90f;
+            float elapsedTime = 0f;
+            Quaternion initialRotation = transform.rotation;
+            Quaternion targetRotation = Quaternion.Euler(transform.eulerAngles + new Vector3(0f, turnAngle, 0f));
+
+            while (elapsedTime < turnDuration)
+            {
+                transform.rotation = Quaternion.Slerp(initialRotation, targetRotation, elapsedTime / turnDuration);
+                elapsedTime += Time.deltaTime;
+                yield return null;
+            }
+
+            // Ensure final rotation is exact
+            transform.rotation = targetRotation;
+
+            yield return new WaitForSeconds(0.1f); // Small delay to finish the turn animation
+
+            // Resume walking
+            PlayAnimation(walkForwardAnimation);
+            isTurning = false;
+        }
 
         IEnumerator NPCBehaviorRoutine()
         {
             while (true)
             {
-                if (isSitting)
+                // Start walking
+                PlayAnimation(walkForwardAnimation);
+                yield return new WaitForSeconds(moveDuration);
+
+                // Randomly decide next action
+                float randomAction = Random.Range(0f, 1f);
+
+                if (randomAction < 0.4f) // 40% chance to eat
                 {
-                    yield return StandUpForDuration();
+                    PlayAnimation("GoatSheep_eating");
+                    yield return new WaitForSeconds(5f); // Eating duration
                 }
 
-                yield return SitOrIdleForDuration();
-                yield return RunForDuration();
-                yield return IdleBeforeTurn();
-                yield return SitOrIdleForDuration();
-            }
-        }
-
-        IEnumerator RunForDuration()
-        {
-            animator.CrossFade(runForwardAnimation, 0.1f);
-            yield return new WaitForSeconds(moveDuration);
-
-            int nextState = Random.Range(0, 2);
-            if (nextState == 0)
-            {
-                yield return IdleForDuration();
-            }
-            else
-            {
-                animator.CrossFade(trotAnimation, 0.1f);
-                yield return new WaitForSeconds(moveDuration);
-            }
-        }
-
-        IEnumerator IdleBeforeTurn()
-        {
-            animator.CrossFade("idle", 0.1f);
-            yield return new WaitForSeconds(shortIdleDuration);
-
-            yield return TurnAndWalk();
-        }
-
-        IEnumerator TurnAndWalk()
-        {
-            int turnDirection = Random.Range(0, 2);
-
-            if (turnDirection == 0)
-            {
-                animator.CrossFade(turn90LAnimation, 0.1f);
-                transform.Rotate(Vector3.up, -90);
-            }
-            else
-            {
-                animator.CrossFade(turn90RAnimation, 0.1f);
-                transform.Rotate(Vector3.up, 90);
-            }
-
-            yield return new WaitForSeconds(1f);
-
-            animator.CrossFade(walkForwardAnimation, 0.1f);
-            yield return new WaitForSeconds(moveDuration);
-        }
-
-        IEnumerator SitOrIdleForDuration()
-        {
-            int idleOrSit = Random.Range(0, 2);
-
-            if (idleOrSit == 0)
-            {
-                animator.CrossFade("idle", 0.1f);
+                // Idle after walking, eating, or trotting
+                PlayAnimation(idleAnimation);
                 yield return new WaitForSeconds(idleDuration);
             }
-            else if (!isSitting)
+        }
+
+
+        void PlayAnimation(string animationName)
+        {
+            if (animator != null && !animator.GetCurrentAnimatorStateInfo(0).IsName(animationName))
             {
-                yield return SitDownForDuration();
+                animator.CrossFade(animationName, 0.1f);
             }
-        }
-
-        IEnumerator SitDownForDuration()
-        {
-            animator.CrossFade(standtositAnimation, 0.1f);
-            isSitting = true;
-            yield return new WaitForSeconds(sitDuration);
-        }
-
-        IEnumerator StandUpForDuration()
-        {
-            animator.CrossFade(sittostandAnimation, 0.1f);
-            isSitting = false;
-            yield return new WaitForSeconds(1f);
-        }
-
-        IEnumerator IdleForDuration()
-        {
-            animator.CrossFade("idle", 0.1f);
-            yield return new WaitForSeconds(idleDuration);
         }
     }
 }

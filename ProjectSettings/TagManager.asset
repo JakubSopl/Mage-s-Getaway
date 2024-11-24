@@ -11,6 +11,7 @@ TagManager:
   - Water
   - CameraIgnor
   - Ocean
+  - noAngleRestriction
   layers:
   - Default
   - TransparentFX
