@@ -1,78 +1,162 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class NPCInteractable : MonoBehaviour
 {
     [SerializeField] private GameObject chatBubblePrefab; // Prefab bubliny
-    [SerializeField] private string npcText; // Text pro bublinu
+    [SerializeField] private List<string> npcTexts; // První list textù
+    [SerializeField] private List<string> secondaryNpcTexts; // Druhý list textù
+    [SerializeField] private Animator npcAnimator; // Animator pro NPC
     private GameObject activeChatBubble; // Aktivní instance bubliny
     [SerializeField] private Transform cameraTransform; // Kamera hráèe
+    [SerializeField] private Transform playerTransform; // Transform hráèe
     [SerializeField] private float typingSpeed; // Rychlost psaní textu
     [SerializeField] private float minFontSize; // Minimální velikost textu
     [SerializeField] private float maxFontSize; // Maximální velikost textu
+    private int currentTextIndex = 0; // Aktuální index textu v prvním listu
+    private int currentSecondaryTextIndex = 0; // Aktuální index textu ve druhém listu
+    private bool isUsingSecondaryTexts = false; // Flag, který urèuje, zda se používá druhý list textù
+    private bool isTalking = false; // Lokální stav mluvení
 
     private void Update()
     {
-        // Check visibility logic if the bubble exists
         if (activeChatBubble != null)
         {
-            Canvas bubbleCanvas = activeChatBubble.GetComponentInChildren<Canvas>();
-            if (bubbleCanvas != null)
-            {
-                // Direction from the bubble to the camera
-                Vector3 toCamera = (cameraTransform.position - activeChatBubble.transform.position).normalized;
-
-                // Dot product determines if the camera is in front or behind
-                float dotProduct = Vector3.Dot(activeChatBubble.transform.forward, toCamera);
-
-                // Enable or disable the canvas
-                bubbleCanvas.enabled = dotProduct > 0; // Enable when in front, disable when behind
-            }
+            // Udržuj bublinu orientovanou na kameru hráèe
+            activeChatBubble.transform.LookAt(cameraTransform);
+            activeChatBubble.transform.rotation = Quaternion.Euler(0, activeChatBubble.transform.rotation.eulerAngles.y, 0);
         }
     }
 
     public void Interact()
     {
-        // Pokud již existuje bublina, zniè ji
+        if (!isTalking)
+        {
+            StartTalking();
+        }
+
         if (activeChatBubble != null)
         {
             Destroy(activeChatBubble);
         }
 
-        Vector3 spawnPosition = transform.position + Vector3.up * 3 + Vector3.back * 0.5f;
+        // Otoè NPC smìrem k hráèi
+        FacePlayer();
+
+        if (isUsingSecondaryTexts)
+        {
+            if (currentSecondaryTextIndex < secondaryNpcTexts.Count)
+            {
+                ShowBubble(secondaryNpcTexts[currentSecondaryTextIndex]);
+                currentSecondaryTextIndex++;
+            }
+            else
+            {
+                EndConversation();
+            }
+        }
+        else
+        {
+            if (currentTextIndex < npcTexts.Count)
+            {
+                ShowBubble(npcTexts[currentTextIndex]);
+                currentTextIndex++;
+            }
+            else
+            {
+                EndConversation();
+                isUsingSecondaryTexts = true; // Switch to the second list for the next interaction
+            }
+        }
+    }
+
+    private void StartTalking()
+    {
+        isTalking = true;
+        if (npcAnimator != null)
+        {
+            npcAnimator.SetBool("isTalking", true);
+        }
+    }
+
+    private void ShowBubble(string text)
+    {
+        if (chatBubblePrefab == null)
+            return;
+
+        // Spawn bubliny nad NPC
+        Vector3 spawnPosition = transform.position + Vector3.up * 3;
         activeChatBubble = Instantiate(chatBubblePrefab, spawnPosition, Quaternion.identity);
 
-        // Najdi TextMeshProUGUI v prefab bubliny
         TMPro.TextMeshProUGUI textComponent = activeChatBubble.GetComponentInChildren<TMPro.TextMeshProUGUI>();
         if (textComponent != null)
         {
-            // Nastav automatické pøizpùsobení textu
             textComponent.enableAutoSizing = true;
             textComponent.fontSizeMin = minFontSize;
             textComponent.fontSizeMax = maxFontSize;
 
-            StartCoroutine(TypeText(textComponent, npcText));
-        }
-        else
-        {
-            Debug.LogError("TextMeshProUGUI nebyl nalezen v prefab bubliny!");
+            StartCoroutine(TypeText(textComponent, text));
         }
 
-        // Nastav bublinu jako dítì NPC, aby se pohybovala s ním
+        // Nastav bublinu jako dítì NPC
         activeChatBubble.transform.SetParent(transform);
     }
 
     private IEnumerator TypeText(TMPro.TextMeshProUGUI textComponent, string text)
     {
-        textComponent.text = ""; // Vymaž existující text
+        if (textComponent == null)
+            yield break;
+
+        textComponent.text = "";
         foreach (char letter in text)
         {
-            textComponent.text += letter; // Pøidej písmeno
-            yield return new WaitForSeconds(typingSpeed); // Poèkej pøed pøidáním dalšího
+            if (textComponent == null)
+                yield break; // Pokud je textComponent znièen bìhem psaní, ukonèíme korutinu
+
+            textComponent.text += letter;
+            yield return new WaitForSeconds(typingSpeed);
         }
 
-        // Pøizpùsob text podle velikosti bubliny
-        textComponent.ForceMeshUpdate(); // Zajistí pøepoèet velikosti textu
+        if (textComponent != null)
+        {
+            textComponent.ForceMeshUpdate();
+        }
+    }
+
+    private void FacePlayer()
+    {
+        if (playerTransform == null)
+            return;
+
+        Vector3 directionToPlayer = (playerTransform.position - transform.position).normalized;
+        directionToPlayer.y = 0; // Zabráníme sklápìní nebo naklánìní
+        transform.rotation = Quaternion.LookRotation(directionToPlayer);
+    }
+
+    private void EndConversation()
+    {
+        if (activeChatBubble != null)
+        {
+            Destroy(activeChatBubble);
+        }
+
+        isTalking = false;
+        if (npcAnimator != null)
+        {
+            npcAnimator.SetBool("isTalking", false);
+        }
+
+        if (!isUsingSecondaryTexts)
+        {
+            // Reset the first list index, ready for a new conversation cycle if needed
+            currentTextIndex = 0;
+        }
+        else
+        {
+            // Reset the second list index
+            currentSecondaryTextIndex = 0;
+        }
     }
 }

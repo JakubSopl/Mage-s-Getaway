@@ -182,7 +182,7 @@ Material:
     - _Bottom_Color: {r: 1, g: 1, b: 1, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _Player_Position: {r: 80, g: -1.4716164, b: 73.198875, a: 0}
+    - _Player_Position: {r: 38.5, g: 0.30238354, b: 85.99887, a: 0}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
     - _TopColor: {r: 0.7830189, g: 0.7830189, b: 0.7830189, a: 0}
     - _Top_Color: {r: 1, g: 1, b: 1, a: 0}
