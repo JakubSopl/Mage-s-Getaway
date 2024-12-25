@@ -15,6 +15,7 @@ public class NPCInteractable : MonoBehaviour
     [SerializeField] private float typingSpeed; // Rychlost psaní textu
     [SerializeField] private float minFontSize; // Minimální velikost textu
     [SerializeField] private float maxFontSize; // Maximální velikost textu
+    [SerializeField] private bool doNotRotateToPlayer; // Nastavení, zda se NPC otoèí k hráèi
     private int currentTextIndex = 0; // Aktuální index textu v prvním listu
     private int currentSecondaryTextIndex = 0; // Aktuální index textu ve druhém listu
     private bool isUsingSecondaryTexts = false; // Flag, kterı urèuje, zda se pouívá druhı list textù
@@ -42,8 +43,11 @@ public class NPCInteractable : MonoBehaviour
             Destroy(activeChatBubble);
         }
 
-        // Otoè NPC smìrem k hráèi
-        FacePlayer();
+        // Otoè NPC smìrem k hráèi, pokud je to povoleno
+        if (!doNotRotateToPlayer)
+        {
+            FacePlayer();
+        }
 
         if (isUsingSecondaryTexts)
         {
@@ -102,6 +106,9 @@ public class NPCInteractable : MonoBehaviour
 
         // Nastav bublinu jako dítì NPC
         activeChatBubble.transform.SetParent(transform);
+
+        // Spus korutinu na odstranìní bubliny po 5 sekundách
+        StartCoroutine(HideBubbleAfterDelay(10f));
     }
 
     private IEnumerator TypeText(TMPro.TextMeshProUGUI textComponent, string text)
@@ -125,6 +132,19 @@ public class NPCInteractable : MonoBehaviour
         }
     }
 
+    private IEnumerator HideBubbleAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        if (activeChatBubble != null)
+        {
+            Destroy(activeChatBubble);
+            activeChatBubble = null;
+        }
+
+        EndConversation(); // Pøepni NPC zpìt do stavu idle
+    }
+
     private void FacePlayer()
     {
         if (playerTransform == null)
@@ -137,11 +157,6 @@ public class NPCInteractable : MonoBehaviour
 
     private void EndConversation()
     {
-        if (activeChatBubble != null)
-        {
-            Destroy(activeChatBubble);
-        }
-
         isTalking = false;
         if (npcAnimator != null)
         {
