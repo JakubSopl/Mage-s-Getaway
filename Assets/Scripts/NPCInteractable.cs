@@ -9,6 +9,10 @@ public class NPCInteractable : MonoBehaviour
     [SerializeField] private List<string> npcTexts; // První list textù
     [SerializeField] private List<string> secondaryNpcTexts; // Druhý list textù
     [SerializeField] private Animator npcAnimator; // Animator pro NPC
+    [SerializeField] private CloakReward cloakRewardScript; // Reference na skript pro odmìnu hráèe
+    [SerializeField] private JumpBoostReward jumpBoostRewardScript; // Reference na skript pro zvýšení skoku
+    [SerializeField] private bool grantsCloak; // Zda toto NPC dává pláš
+    [SerializeField] private bool grantsJumpBoost; // Zda toto NPC dává zvýšený skok
     private GameObject activeChatBubble; // Aktivní instance bubliny
     [SerializeField] private Transform cameraTransform; // Kamera hráèe
     [SerializeField] private Transform playerTransform; // Transform hráèe
@@ -20,6 +24,8 @@ public class NPCInteractable : MonoBehaviour
     private int currentSecondaryTextIndex = 0; // Aktuální index textu ve druhém listu
     private bool isUsingSecondaryTexts = false; // Flag, který urèuje, zda se používá druhý list textù
     private bool isTalking = false; // Lokální stav mluvení
+
+    private Coroutine hideBubbleCoroutine; // Reference na aktivní korutinu pro skrytí bubliny
 
     private void Update()
     {
@@ -70,10 +76,17 @@ public class NPCInteractable : MonoBehaviour
             }
             else
             {
-                EndConversation();
                 isUsingSecondaryTexts = true; // Switch to the second list for the next interaction
+                Interact(); // Immediately continue with secondary texts
             }
         }
+
+        // Restartuj èasovaè pro skrytí bubliny
+        if (hideBubbleCoroutine != null)
+        {
+            StopCoroutine(hideBubbleCoroutine);
+        }
+        hideBubbleCoroutine = StartCoroutine(HideBubbleAfterDelay(10f));
     }
 
     private void StartTalking()
@@ -106,9 +119,6 @@ public class NPCInteractable : MonoBehaviour
 
         // Nastav bublinu jako dítì NPC
         activeChatBubble.transform.SetParent(transform);
-
-        // Spus korutinu na odstranìní bubliny po 5 sekundách
-        StartCoroutine(HideBubbleAfterDelay(10f));
     }
 
     private IEnumerator TypeText(TMPro.TextMeshProUGUI textComponent, string text)
@@ -163,15 +173,27 @@ public class NPCInteractable : MonoBehaviour
             npcAnimator.SetBool("isTalking", false);
         }
 
-        if (!isUsingSecondaryTexts)
+        bool allTextsCompleted = isUsingSecondaryTexts && currentSecondaryTextIndex >= secondaryNpcTexts.Count;
+        bool primaryTextsCompleted = !isUsingSecondaryTexts && currentTextIndex >= npcTexts.Count;
+
+        if (primaryTextsCompleted && !isUsingSecondaryTexts)
         {
-            // Reset the first list index, ready for a new conversation cycle if needed
-            currentTextIndex = 0;
+            isUsingSecondaryTexts = true;
         }
-        else
+        else if (allTextsCompleted)
         {
-            // Reset the second list index
+            currentTextIndex = 0;
             currentSecondaryTextIndex = 0;
+
+            if (grantsCloak && cloakRewardScript != null)
+            {
+                cloakRewardScript.GrantCloak();
+            }
+
+            if (grantsJumpBoost && jumpBoostRewardScript != null)
+            {
+                jumpBoostRewardScript.GrantJumpBoost();
+            }
         }
     }
 }
