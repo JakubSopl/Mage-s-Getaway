@@ -34,11 +34,13 @@ public class Movement : MonoBehaviour
     private float lastJumpTime = -1.5f;
 
     // Respawn
-    public Transform respawnPoint; // Set this to the starting position in the inspector
+    public Transform respawnPoint; // Starting respawn point
+    public Transform respawnPoint2; // New respawn point for FinalCheckpoint
     public Image fadeImage; // Assign the blue image here
     public float fadeDuration = 0.2f;
 
     private bool isRespawning = false;
+    private bool finalCheckpointReached = false; // Track if the final checkpoint is reached
 
     // Detection area
     public float detectionRadius = 0.1f; // Radius for detecting "Ocean" area
@@ -71,7 +73,6 @@ public class Movement : MonoBehaviour
             isSprinting = Input.GetKey(KeyCode.LeftShift);
             float speed = isSprinting ? runSpeed : playerSpeed;
             controller.Move(moveDirection * speed * Time.deltaTime);
-
         }
 
         float targetSpeed = isSprinting ? runSpeed : playerSpeed;
@@ -85,11 +86,22 @@ public class Movement : MonoBehaviour
             lastJumpTime = Time.time;
         }
 
-        playerVelocity.y += gravityValue * Time.deltaTime;
-
-        if (groundedPlayer && playerVelocity.y <= 0)
+        if (groundedPlayer)
         {
-            StickToGround();
+            if (playerVelocity.y < 0)
+            {
+                StickToGround();
+                playerVelocity.y = 0; // Reset pádové rychlosti pøi kontaktu se zemí
+            }
+        }
+        else
+        {
+            // Pøidání plynulé gravitace, pokud hráè není na zemi
+            playerVelocity.y += gravityValue * Time.deltaTime;
+
+            // Omezíme maximální rychlost pádu, aby byl pád pøirozenìjší
+            float maxFallSpeed = -20f; // Nastavte maximální rychlost pádu
+            playerVelocity.y = Mathf.Max(playerVelocity.y, maxFallSpeed);
         }
 
         controller.Move(playerVelocity * Time.deltaTime);
@@ -104,8 +116,6 @@ public class Movement : MonoBehaviour
             animator.SetBool("run", false);
         }
     }
-
-
 
 
     private bool IsGroundedByRaycast()
@@ -133,12 +143,25 @@ public class Movement : MonoBehaviour
         }
     }
 
-
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Ocean") && !isRespawning)
         {
             StartCoroutine(Respawn());
+        }
+        else if (other.CompareTag("FinalCheckpoint"))
+        {
+            SetNewRespawnPoint();
+        }
+    }
+
+    private void SetNewRespawnPoint()
+    {
+        if (respawnPoint2 != null)
+        {
+            respawnPoint = respawnPoint2;
+            finalCheckpointReached = true;
+            Debug.Log("Final checkpoint reached. Respawn point updated.");
         }
     }
 
@@ -188,6 +211,4 @@ public class Movement : MonoBehaviour
         isRespawning = false; // Allow future respawns
         Debug.Log("Respawn complete.");
     }
-
-
 }
