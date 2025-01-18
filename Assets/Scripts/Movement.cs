@@ -22,6 +22,14 @@ public class Movement : MonoBehaviour
     public float speedDampTime = 0.1f;
     public float groundCheckDistance = 0.3f;
 
+    // Stabilizace detekce zemì
+    private float groundTimeThreshold = 0.2f; // Doba, po kterou hráè musí být ve vzduchu, aby se poèítal jako padající
+    private float lastGroundedTime; // Poslední èas, kdy byl hráè na zemi
+
+    // Lepení k zemi
+    public float stickToGroundForce = -5f; // Dodateèná síla pro pøilepení k zemi
+    public int groundCheckRayCount = 5; // Poèet Raycastù pro detekci schodù
+
     // Audio
     public AudioSource audioSource;
     public AudioClip walkClip;
@@ -36,18 +44,28 @@ public class Movement : MonoBehaviour
     // Respawn
     public Transform respawnPoint; // Starting respawn point
     public Transform respawnPoint2; // New respawn point for FinalCheckpoint
-    public Image fadeImage; // Assign the blue image here
+    public Image fadeImage; // Assign the fade image here
     public float fadeDuration = 0.2f;
 
     private bool isRespawning = false;
     private bool finalCheckpointReached = false; // Track if the final checkpoint is reached
 
-    // Detection area
-    public float detectionRadius = 0.1f; // Radius for detecting "Ocean" area
-
     void Update()
     {
-        groundedPlayer = controller.isGrounded || IsGroundedByRaycast();
+        // Zjištìní, zda je hráè na zemi
+        bool isGroundedNow = IsGroundedByMultipleRaycasts() || (controller.isGrounded && !IsInTrigger());
+
+        // Pokud je hráè na zemi, aktualizujeme èas
+        if (isGroundedNow)
+        {
+            lastGroundedTime = Time.time;
+            groundedPlayer = true;
+        }
+        else
+        {
+            // Používáme èasovou toleranci, aby pøechod na padání nebyl okamžitý
+            groundedPlayer = Time.time - lastGroundedTime <= groundTimeThreshold;
+        }
 
         float h = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
@@ -79,29 +97,26 @@ public class Movement : MonoBehaviour
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
-        if (Input.GetButtonDown("Jump") && groundedPlayer && IsGroundedByRaycast() && Time.time - lastJumpTime > jumpCooldown)
+        // Skok s cooldownem
+        if (Input.GetButtonDown("Jump") && groundedPlayer && Time.time - lastJumpTime > jumpCooldown)
         {
             playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue);
             groundedPlayer = false;
             lastJumpTime = Time.time;
         }
 
+        // Gravitaèní logika
         if (groundedPlayer)
         {
             if (playerVelocity.y < 0)
             {
-                StickToGround();
-                playerVelocity.y = 0; // Reset pádové rychlosti pøi kontaktu se zemí
+                playerVelocity.y = stickToGroundForce; // Lepení k zemi
             }
         }
         else
         {
-            // Pøidání plynulé gravitace, pokud hráè není na zemi
             playerVelocity.y += gravityValue * Time.deltaTime;
-
-            // Omezíme maximální rychlost pádu, aby byl pád pøirozenìjší
-            float maxFallSpeed = -20f; // Nastavte maximální rychlost pádu
-            playerVelocity.y = Mathf.Max(playerVelocity.y, maxFallSpeed);
+            playerVelocity.y = Mathf.Max(playerVelocity.y, -20f); // Omezíme maximální rychlost pádu
         }
 
         controller.Move(playerVelocity * Time.deltaTime);
@@ -117,30 +132,35 @@ public class Movement : MonoBehaviour
         }
     }
 
-
-    private bool IsGroundedByRaycast()
+    private bool IsGroundedByMultipleRaycasts()
     {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
+        float step = controller.radius / (groundCheckRayCount - 1);
+        for (int i = 0; i < groundCheckRayCount; i++)
         {
-            float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
-            if (slopeAngle > controller.slopeLimit)
+            Vector3 origin = transform.position + new Vector3(-controller.radius + step * i, 0, 0);
+            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, groundCheckDistance + controller.skinWidth))
             {
-                return false;
+                float slopeAngle = Vector3.Angle(hit.normal, Vector3.up);
+                if (slopeAngle <= controller.slopeLimit && !hit.collider.isTrigger)
+                {
+                    return true;
+                }
             }
-            return true;
         }
         return false;
     }
 
-    private void StickToGround()
+    private bool IsInTrigger()
     {
-        RaycastHit hit;
-        if (Physics.Raycast(transform.position, Vector3.down, out hit, groundCheckDistance + controller.skinWidth))
+        Collider[] colliders = Physics.OverlapSphere(transform.position, 0.1f);
+        foreach (var collider in colliders)
         {
-            Vector3 targetPosition = new Vector3(transform.position.x, hit.point.y, transform.position.z);
-            controller.Move(targetPosition - transform.position);
+            if (collider.isTrigger && collider.CompareTag("Ocean"))
+            {
+                return true;
+            }
         }
+        return false;
     }
 
     private void OnTriggerEnter(Collider other)

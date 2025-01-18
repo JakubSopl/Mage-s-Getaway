@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -41,6 +42,7 @@ public class CameraController : MonoBehaviour
     private Quaternion targetCamRot;
 
     public Image fadeImage;
+
 
     void Start()
     {
@@ -161,14 +163,13 @@ public class CameraController : MonoBehaviour
 
         if (Physics.Linecast(character.transform.position + Vector3.up * yOffset, targetPosition, out _camHit))
         {
-            // Check if the hit object has the "CameraIgnore" tag
             if (_camHit.collider.CompareTag("CameraIgnor"))
             {
-                cam.transform.position = targetPosition; // Ignore collision and use target position
+                cam.transform.position = targetPosition;
             }
             else
             {
-                cam.transform.position = _camHit.point + _camHit.normal * 0.1f; // Adjust for collision
+                cam.transform.position = _camHit.point + _camHit.normal * 0.1f;
             }
         }
         else
@@ -237,6 +238,5 @@ public class CameraController : MonoBehaviour
             cam.transform.localPosition = new Vector3(cam.transform.localPosition.x, cam.transform.localPosition.y, -1f);
         }
     }
-
 
 }
