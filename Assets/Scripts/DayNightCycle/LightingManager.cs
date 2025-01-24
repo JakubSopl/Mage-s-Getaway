@@ -9,9 +9,9 @@ public class LightingManager : MonoBehaviour
 
     // Variables
     [SerializeField, Range(0, 24)] private float TimeOfDay = 10f; // Default to 10:00 for baseline lighting
-    [SerializeField] private float daytimeSpeedMultiplier = 0.33f; // 3x slower during the day
-    [SerializeField] private float nighttimeSpeedMultiplier = 1f; // Normal speed at night
-    [SerializeField] private float sunriseSunsetMultiplier = 0.1f; // 5x slower during sunrise and sunset
+    [SerializeField] private float daytimeSpeedMultiplier = 0.22f; // 1.5x slower during the day (original 0.33f)
+    [SerializeField] private float nighttimeSpeedMultiplier = 0.67f; // 1.5x slower at night (original 1f)
+    [SerializeField] private float sunriseSunsetMultiplier = 0.067f; // 1.5x slower during sunrise and sunset (original 0.1f)
 
     // Light intensity settings - baseline for consistent visibility
     [SerializeField] private float baselineDirectionalIntensity = 1f; // Baseline intensity for all times
