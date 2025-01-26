@@ -1,33 +1,28 @@
-using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
 public class UnitHud : MonoBehaviour
 {
-    public TMP_Text unitName;
-    public Slider unitHP, unitMP;
+    public TMP_Text unitName; // Textové pole pro jméno jednotky
+    public Slider unitHP;     // Slider pro zdraví
+    public Slider unitMP;     // Slider pro manu
 
-    public IEnumerator StartHud(UnitHud hud, UnitController unit)
+    public void StartHud(UnitController unit)
     {
-        yield return new WaitUntil(() => unit.currentHealth != 0);
-
+        // Inicializace jména a maximálních hodnot sliderù
         unitName.text = unit.unitScriptableObject.name;
         unitHP.maxValue = unit.unitScriptableObject.health;
         unitMP.maxValue = unit.unitScriptableObject.mana;
 
+        // Nastavení aktuálních hodnot
         UpdateHud(unit);
-        AssignHud(hud, unit);
     }
 
     public void UpdateHud(UnitController unit)
     {
+        // Aktualizace aktuálních hodnot na sliderech
         unitHP.value = unit.currentHealth;
         unitMP.value = unit.currentMana;
-    }
-
-    public void AssignHud(UnitHud hud, UnitController unit)
-    {
-        unit.SetHud(hud);
     }
 }

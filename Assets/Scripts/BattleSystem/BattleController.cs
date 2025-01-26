@@ -12,9 +12,11 @@ public class BattleController : MonoBehaviour
         LOSS
     }
 
+    public GameObject battleUI; // Odkaz na rodièovský objekt pro bojové UI
     public UnitHud PlayerHud;
     public UnitHud EnemyHud;
     public BattleHud BattleHud;
+    public BattleCameraController cameraController;
 
     private GameObject player;
     private GameObject enemy;
@@ -22,25 +24,53 @@ public class BattleController : MonoBehaviour
     private UnitController enemyController;
     private GameState state;
 
-    public void SetupBattle(GameObject player, GameObject enemy)
+    public void SetupBattle(GameObject player, GameObject enemy, Transform battleCameraPosition, Vector3 playerBattlePosition)
     {
+        Debug.Log("SetupBattle started.");
+
         this.player = player;
         this.enemy = enemy;
 
-        playerController = player.GetComponent<UnitController>();
-        enemyController = enemy.GetComponent<UnitController>();
+        // Pøepni kameru na boj
+        cameraController.EnterBattleMode(battleCameraPosition);
 
-        state = GameState.TURN_PLAYER;
+        // Aktivuj bojové UI
+        battleUI.SetActive(true);
 
-        // Nastav HUD
-        StartCoroutine(PlayerHud.StartHud(PlayerHud, playerController));
-        StartCoroutine(EnemyHud.StartHud(EnemyHud, enemyController));
+        // Inicializace UnitController pro hráèe a nepøítele
+        var playerController = player.GetComponent<UnitController>();
+        var enemyController = enemy.GetComponent<UnitController>();
 
-        playerController.SetBattleHud(BattleHud);
-        enemyController.SetBattleHud(BattleHud);
+        if (playerController == null || enemyController == null)
+        {
+            Debug.LogError("PlayerController or EnemyController is null!");
+            return;
+        }
 
+        // Deaktivace pohybu hráèe
+        var movement = player.GetComponent<Movement>();
+        if (movement != null)
+        {
+            movement.isInBattle = true;
+            movement.EnterBattleMode(playerBattlePosition);
+        }
+
+        // Otoèení hráèe smìrem k nepøíteli
+        player.transform.LookAt(new Vector3(enemy.transform.position.x, player.transform.position.y, enemy.transform.position.z));
+
+        // Otoèení nepøítele smìrem k hráèi
+        enemy.transform.LookAt(new Vector3(player.transform.position.x, enemy.transform.position.y, player.transform.position.z));
+
+        // Nastav HUDy
+        PlayerHud.StartHud(playerController);
+        EnemyHud.StartHud(enemyController);
+
+        Debug.Log("Battle HUD initialized.");
         BattleHud.ChooseText();
     }
+
+
+
 
     private void TurnPlayer()
     {
@@ -86,6 +116,9 @@ public class BattleController : MonoBehaviour
             Destroy(player); // Zniè hráèe
             BattleHud.EndText(false);
         }
+
+        // Pøepni zpìt na kameru tøetí osoby
+        cameraController.ExitBattleMode();
     }
 
     public void ButtonAttack()

@@ -12,10 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1f583c4862549ec44a7c8339aac1e80f, type: 3}
   m_Name: EnemyUnit
   m_EditorClassIdentifier: 
-  name: 
-  health: 0
-  mana: 0
-  damage: 0
-  defense: 0
+  name: Enemy
+  health: 100
+  mana: 100
+  damage: 20
+  defense: 10
   healPower: 30
   healMana: 10

@@ -50,8 +50,13 @@ public class Movement : MonoBehaviour
     private bool isRespawning = false;
     private bool finalCheckpointReached = false; // Track if the final checkpoint is reached
 
+    // Pøidaná promìnná pro režim boje
+    public bool isInBattle = false;
+
     void Update()
     {
+        if (isInBattle) return; // Disable movement in battle mode
+
         // Zjištìní, zda je hráè na zemi
         bool isGroundedNow = IsGroundedByMultipleRaycasts() || (controller.isGrounded && !IsInTrigger());
 
@@ -131,6 +136,29 @@ public class Movement : MonoBehaviour
             animator.SetBool("run", false);
         }
     }
+
+    public void EnterBattleMode(Vector3 battlePosition)
+    {
+        isInBattle = true;
+
+        // Deaktivace pohybu a pøemístìní hráèe na pozici
+        controller.enabled = false; // Temporarily disable controller
+        transform.position = battlePosition;
+        controller.enabled = true; // Re-enable controller
+
+        // Reset animací
+        animator.SetFloat("speed", 0);
+        animator.SetBool("run", false);
+    }
+
+    public void ExitBattleMode()
+    {
+        isInBattle = false;
+
+        // Pohyb a další akce jsou opìt povoleny
+        animator.SetFloat("speed", 0);
+    }
+
 
     private bool IsGroundedByMultipleRaycasts()
     {
