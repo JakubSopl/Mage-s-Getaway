@@ -19,3 +19,6 @@ MonoBehaviour:
   defense: 10
   healPower: 30
   healMana: 10
+  attackMana: 5
+  strongAttackDamage: 35
+  strongAttackMana: 20

@@ -1,43 +1,114 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using Random = UnityEngine.Random; // Pro náhodné chování AI
 
 public class UnitController : MonoBehaviour
 {
     public enum UnitState
     {
         IDLE,
-        BUSY,
-        MOVING
+        BUSY
     }
 
     public UnitScriptableObject unitScriptableObject;
     public UnitState state;
     public UnitHud hud;
     public BattleHud battleHud;
-    public UnitParticleController particleController;
-    public UnitSoundController soundController;
-
-    private Vector3 otherPos;
-    private Action onMoveComplete;
-    public UnitBase unit;
+    public Animator animator;
 
     public int currentHealth, currentMana, currentDamage, currentDefense;
 
+    private bool initialized = false;
+    public RuntimeAnimatorController defaultController;
+
+    public GameObject attackEffect;
+    public GameObject strongAttackEffect;
+    public GameObject healEffect;
+
+    private void SpawnEffect(GameObject effectPrefab, Transform target)
+    {
+        if (effectPrefab == null || target == null) return;
+
+        GameObject effect = Instantiate(effectPrefab, target.position, Quaternion.identity);
+        Destroy(effect, 2f);
+    }
+
     void Start()
     {
-        unit = GetComponent<UnitBase>();
-        soundController = GetComponent<UnitSoundController>();
+        if (!initialized)
+        {
+            InitializeStats();
+        }
+
+        animator = GetComponent<Animator>();
+
+        if (animator == null)
+        {
+            Debug.LogError("Animator component is MISSING!");
+            return;
+        }
+
+        if (animator.runtimeAnimatorController == null)
+        {
+            Debug.LogError("Animator has NO CONTROLLER assigned! Assigning it now...");
+            if (defaultController != null)
+            {
+                animator.runtimeAnimatorController = defaultController;
+                Debug.Log($"Animator Controller set to: {defaultController.name}");
+            }
+            else
+            {
+                Debug.LogError("Failed to assign Animator Controller! Please check Inspector.");
+            }
+        }
+    }
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.T))
+        {
+
+            if (animator != null)
+            {
+                Debug.Log("Manually triggering AttackTrigger.");
+                animator.SetTrigger("AttackTrigger");
+            }
+            else
+            {
+                Debug.LogError("Animator is NULL!");
+            }
+        }
+    }
+
+    private void InitializeStats()
+    {
+        if (initialized) return;
+
         state = UnitState.IDLE;
         currentHealth = unitScriptableObject.health;
         currentMana = unitScriptableObject.mana;
         currentDamage = unitScriptableObject.damage;
         currentDefense = unitScriptableObject.defense;
+        initialized = true;
+
+        UpdateHud();
+    }
+
+    public void UpdateHud()
+    {
+        if (hud != null)
+        {
+            hud.UpdateHud(this);
+        }
     }
 
     public void SetHud(UnitHud hud)
     {
         this.hud = hud;
+        hud.unitHP.maxValue = unitScriptableObject.health;
+        hud.unitMP.maxValue = unitScriptableObject.mana;
+        hud.UpdateHud(this);
     }
 
     public void SetBattleHud(BattleHud battleHud)
@@ -45,59 +116,186 @@ public class UnitController : MonoBehaviour
         this.battleHud = battleHud;
     }
 
+    public void EnterBattleMode()
+    {
+        if (animator != null)
+        {
+            animator.SetBool("IsInBattle", true);
+
+            // Pokud je hráè ve stavu "Falling Idle", vynutíme pøechod do "Fighting Idle"
+            if (animator.GetCurrentAnimatorStateInfo(0).IsName("Falling Idle"))
+            {
+                animator.Play("Fighting Idle"); // Pøímá zmìna animace
+            }
+        }
+    }
+
+
+    public void ExitBattleMode()
+    {
+        if (animator != null)
+        {
+            animator.SetBool("IsInBattle", false);
+        }
+    }
+
+    private void ResetTriggers()
+    {
+        if (animator == null) return;
+
+        foreach (AnimatorControllerParameter param in animator.parameters)
+        {
+            if (param.type == AnimatorControllerParameterType.Trigger)
+            {
+                animator.ResetTrigger(param.name);
+            }
+        }
+    }
+
     public void MakeTurn(UnitController other, Action onTurnComplete)
     {
-        if (currentHealth + unitScriptableObject.healPower <= unitScriptableObject.health && EnoughManaForSpell("heal"))
-            HealTurn(onTurnComplete);
-        else
-            AttackTurn(other, onTurnComplete);
+        StartCoroutine(EnemyTurn(other, onTurnComplete));
     }
+
+    private IEnumerator EnemyTurn(UnitController other, Action onTurnComplete)
+    {
+        yield return new WaitForSeconds(Random.Range(1.0f, 2.5f)); // Náhodné zpoždìní pøed útokem
+
+        int action = Random.Range(0, 3); // 0 = Normální útok, 1 = Silný útok, 2 = Heal
+
+        switch (action)
+        {
+            case 0:
+                AttackTurn(other, onTurnComplete);
+                break;
+            case 1:
+                StrongAttackTurn(other, onTurnComplete);
+                break;
+            case 2:
+                if (currentHealth < unitScriptableObject.health && currentMana >= unitScriptableObject.healMana)
+                {
+                    HealTurn(onTurnComplete);
+                }
+                else
+                {
+                    AttackTurn(other, onTurnComplete);
+                }
+                break;
+        }
+    }
+
 
     public void AttackTurn(UnitController other, Action onTurnComplete)
     {
-        battleHud.UsedText(unitScriptableObject.name, "Attack");
-
-        Vector3 startPosition = transform.position;
-        Vector3 moveTargetPosition = other.transform.position + (transform.position - other.transform.position).normalized * 2f;
-
-        MoveToPosition(moveTargetPosition, () =>
+        if (currentMana < unitScriptableObject.attackMana)
         {
-            state = UnitState.BUSY;
-            unit.LookAt(other.transform.position); // Otoè smìrem k nepøíteli
-            other.unit.PlayAnimation("HitTrigger");
+            battleHud.ManaText(unitScriptableObject.attackMana);
+            onTurnComplete?.Invoke();
+            return;
+        }
 
-            unit.PlayForcedAnimation("AttackTrigger", () =>
-            {
-                int damage = Math.Max(0, currentDamage - other.currentDefense);
-                battleHud.DamageText(other.unitScriptableObject.name, damage);
+        state = UnitState.BUSY;
+        ResetTriggers();
+        animator.SetTrigger("AttackTrigger");
 
-                other.currentHealth -= damage;
-                other.hud.UpdateHud(other);
+        currentMana -= unitScriptableObject.attackMana;
+        int damage = Math.Max(0, currentDamage - other.currentDefense);
 
-                MoveToPosition(startPosition, () =>
-                {
-                    state = UnitState.IDLE;
-                    unit.PlayAnimation("MoveTrigger");
-                    onTurnComplete();
-                });
-            });
-        });
+        // Spawn efektu na cíli
+        SpawnEffect(attackEffect, other.transform);
+
+        StartCoroutine(ApplyDamageAfterDelay(other, damage, onTurnComplete));
+    }
+
+    public void StrongAttackTurn(UnitController other, Action onTurnComplete)
+    {
+        if (currentMana < unitScriptableObject.strongAttackMana)
+        {
+            battleHud.ManaText(unitScriptableObject.strongAttackMana);
+            onTurnComplete?.Invoke();
+            return;
+        }
+
+        state = UnitState.BUSY;
+        ResetTriggers();
+        animator.SetTrigger("StrongAttackTrigger");
+
+        currentMana -= unitScriptableObject.strongAttackMana;
+        int damage = Math.Max(0, unitScriptableObject.strongAttackDamage - other.currentDefense);
+
+        // Spawn efektu na cíli
+        SpawnEffect(strongAttackEffect, other.transform);
+
+        StartCoroutine(ApplyDamageAfterDelay(other, damage, onTurnComplete));
     }
 
     public void HealTurn(Action onTurnComplete)
     {
-        battleHud.UsedText(unitScriptableObject.name, "Heal");
+        state = UnitState.BUSY;
+        ResetTriggers();
+        animator.SetTrigger("HealTrigger");
 
-        StartCoroutine(battleHud.HealText(unitScriptableObject.name, unitScriptableObject.healPower));
-        soundController.PlaySound("Heal");
+        currentMana -= unitScriptableObject.healMana;
+        int healAmount = unitScriptableObject.healPower;
+        currentHealth = Math.Min(unitScriptableObject.health, currentHealth + healAmount);
+        battleHud.HealText(unitScriptableObject.name, healAmount);
 
-        StartCoroutine(particleController.PlayParticle("Heal", () =>
+        // Spawn efektu na sobì
+        SpawnEffect(healEffect, this.transform);
+
+        UpdateHud();
+
+        StartCoroutine(EndTurnWithDelay(onTurnComplete));
+    }
+
+    private IEnumerator ApplyDamageAfterDelay(UnitController target, int damage, Action onTurnComplete)
+    {
+        yield return new WaitForSeconds(1.0f);
+        target.TakeDamage(damage);
+
+        if (hud != null)
         {
-            currentMana -= unitScriptableObject.healMana;
-            currentHealth = Math.Min(unitScriptableObject.health, currentHealth + unitScriptableObject.healPower);
             hud.UpdateHud(this);
-            onTurnComplete();
-        }));
+        }
+
+        state = UnitState.IDLE;
+        onTurnComplete?.Invoke();
+    }
+
+    private IEnumerator EndTurnWithDelay(Action onTurnComplete)
+    {
+        yield return new WaitForSeconds(1.5f);
+        state = UnitState.IDLE;
+        onTurnComplete?.Invoke();
+    }
+
+    public void TakeDamage(int damage)
+    {
+        currentHealth -= damage;
+        currentHealth = Mathf.Clamp(currentHealth, 0, unitScriptableObject.health);
+        battleHud.DamageText(unitScriptableObject.name, damage);
+        ResetTriggers();
+        animator.SetTrigger("TakeDamageTrigger");
+
+        UpdateHud();
+
+        if (currentHealth <= 0)
+        {
+            StartCoroutine(DeathSequence());
+        }
+    }
+
+    private IEnumerator DeathSequence()
+    {
+        ResetTriggers();
+        animator.SetTrigger("DeathTrigger");
+        yield return new WaitForSeconds(1.5f);
+        Destroy(gameObject);
+    }
+
+    public void Delete()
+    {
+        StartCoroutine(DeathSequence());
     }
 
     public bool EnoughManaForSpell(string name)
@@ -105,36 +303,5 @@ public class UnitController : MonoBehaviour
         if (name == "heal" && currentMana < unitScriptableObject.healMana)
             return false;
         return true;
-    }
-
-    private void Update()
-    {
-        if (state == UnitState.MOVING)
-        {
-            float moveSpeed = 5f;
-            transform.position += (otherPos - transform.position).normalized * moveSpeed * Time.deltaTime;
-
-            if (Vector3.Distance(transform.position, otherPos) < 0.1f)
-            {
-                transform.position = otherPos;
-                state = UnitState.IDLE;
-                onMoveComplete?.Invoke();
-            }
-        }
-    }
-
-    private void MoveToPosition(Vector3 otherPos, Action onMoveComplete)
-    {
-        unit.PlayAnimation("MoveTrigger");
-        unit.LookAt(otherPos); // Pøidání otoèení
-        this.otherPos = otherPos;
-        this.onMoveComplete = onMoveComplete;
-        state = UnitState.MOVING;
-    }
-
-    public void Delete()
-    {
-        unit.PlayAnimation("DeathTrigger");
-        StartCoroutine(particleController.PlayParticle("Death", () => { Destroy(this.gameObject, 1); }));
     }
 }
