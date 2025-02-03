@@ -42,6 +42,16 @@ public class BattleHud : MonoBehaviour
         ShowTemporaryMessage($"You need {mana} mana for spell!", 2.5f, true);
     }
 
+    public void RestoreManaText(string unitName, int mana)
+    {
+        ShowTemporaryMessage($"{unitName} restored {mana} mana!", 2.5f, true);
+    }
+
+    public void FullManaText(string unitName)
+    {
+        ShowTemporaryMessage($"{unitName} already has full mana!", 2.5f, true);
+    }
+
     public void EnemyActionText(string unitName, string actionName)
     {
         ShowTemporaryMessage($"{unitName} uses {actionName}!", 2.5f, false);

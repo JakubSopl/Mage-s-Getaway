@@ -25,6 +25,7 @@ public class UnitController : MonoBehaviour
     public GameObject attackEffect;
     public GameObject strongAttackEffect;
     public GameObject healEffect;
+    public GameObject restoreManaEffect; 
 
     private void SpawnEffect(GameObject effectPrefab, Transform target)
     {
@@ -161,28 +162,40 @@ public class UnitController : MonoBehaviour
     {
         yield return new WaitForSeconds(Random.Range(1.0f, 2.5f)); // Náhodné zpoždìní pøed útokem
 
-        int action = Random.Range(0, 3); // 0 = Normální útok, 1 = Silný útok, 2 = Heal
+        int actionRoll = Random.Range(0, 10); // Rozdìlení 0-9 pro pøesné šance
 
-        switch (action)
+        if (actionRoll < 4) // 0-3 (40%) Normální útok
         {
-            case 0:
-                AttackTurn(other, onTurnComplete);
-                break;
-            case 1:
-                StrongAttackTurn(other, onTurnComplete);
-                break;
-            case 2:
-                if (currentHealth < unitScriptableObject.health && currentMana >= unitScriptableObject.healMana)
-                {
-                    HealTurn(onTurnComplete);
-                }
-                else
-                {
-                    AttackTurn(other, onTurnComplete);
-                }
-                break;
+            AttackTurn(other, onTurnComplete);
+        }
+        else if (actionRoll < 6) // 4-5 (20%) Silný útok
+        {
+            StrongAttackTurn(other, onTurnComplete);
+        }
+        else if (actionRoll < 8) // 6-7 (20%) Heal, pokud má ménì než max HP
+        {
+            if (currentHealth < unitScriptableObject.health && currentMana >= unitScriptableObject.healMana)
+            {
+                HealTurn(onTurnComplete);
+            }
+            else
+            {
+                AttackTurn(other, onTurnComplete); // Pokud nemùže healovat, udìlá normální útok
+            }
+        }
+        else // 8-9 (20%) Obnova many, pokud je pod 50%
+        {
+            if (currentMana < unitScriptableObject.mana / 2)
+            {
+                RestoreManaTurn(10, onTurnComplete); // Pøidá 10 many
+            }
+            else
+            {
+                AttackTurn(other, onTurnComplete); // Pokud nemá smysl obnovit manu, udìlá normální útok
+            }
         }
     }
+
 
 
     public void AttackTurn(UnitController other, Action onTurnComplete)
@@ -247,6 +260,24 @@ public class UnitController : MonoBehaviour
 
         StartCoroutine(EndTurnWithDelay(onTurnComplete));
     }
+
+    public void RestoreManaTurn(int manaAmount, Action onTurnComplete)
+    {
+        state = UnitState.BUSY;
+        ResetTriggers();
+        animator.SetTrigger("HealTrigger"); // Pøehraje stejnou animaci jako pøi healu
+
+        currentMana = Mathf.Min(unitScriptableObject.mana, currentMana + manaAmount);
+        battleHud.RestoreManaText(unitScriptableObject.name, manaAmount); // Zobrazí zprávu v HUDu
+
+        // Spawn efektu na sobì
+        SpawnEffect(restoreManaEffect, this.transform);
+
+        UpdateHud();
+
+        StartCoroutine(EndTurnWithDelay(onTurnComplete));
+    }
+
 
     private IEnumerator ApplyDamageAfterDelay(UnitController target, int damage, Action onTurnComplete)
     {

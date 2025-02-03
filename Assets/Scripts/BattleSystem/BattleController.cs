@@ -17,6 +17,7 @@ public class BattleController : MonoBehaviour
     public UnitHud EnemyHud;
     public BattleHud BattleHud;
     public BattleCameraController cameraController;
+    private BattleTrigger battleTrigger;
 
     private GameObject player;
     private GameObject enemy;
@@ -41,12 +42,13 @@ public class BattleController : MonoBehaviour
     }
 
 
-    public void SetupBattle(GameObject player, GameObject enemy, Transform battleCameraPosition, Vector3 playerBattlePosition)
+    public void SetupBattle(GameObject player, GameObject enemy, Transform battleCameraPosition, Vector3 playerBattlePosition, BattleTrigger trigger)
     {
         Debug.Log("SetupBattle started.");
 
         this.player = player;
         this.enemy = enemy;
+        this.battleTrigger = trigger; // Uložíme aktuální BattleTrigger
 
         cameraController.EnterBattleMode(battleCameraPosition);
 
@@ -73,14 +75,13 @@ public class BattleController : MonoBehaviour
             enemyController.currentHealth = enemyController.unitScriptableObject.health;
         }
 
-        if (playerController.currentHealth == 0) 
+        if (playerController.currentHealth == 0)
         {
             playerController.currentHealth = playerController.unitScriptableObject.health;
         }
 
         Debug.Log($"[SetupBattle] Player HP: {playerController.currentHealth}, Enemy HP: {enemyController.currentHealth}");
 
-        // Deaktivace pohybu hráèe a pøesunutí na bojovou pozici
         var movement = player.GetComponent<Movement>();
         if (movement != null)
         {
@@ -123,11 +124,9 @@ public class BattleController : MonoBehaviour
             Debug.LogError("BattleHud is not assigned!");
         }
 
-
-        StartCoroutine(DebugCheckHealth());
-
         state = GameState.TURN_PLAYER;
     }
+
 
     private IEnumerator DebugCheckHealth()
     {
@@ -249,6 +248,36 @@ public class BattleController : MonoBehaviour
         playerController.StrongAttackTurn(enemyController, TurnPlayer);
     }
 
+    public void ButtonRestoreMana()
+    {
+        if (state != GameState.TURN_PLAYER)
+        {
+            Debug.LogWarning("Cannot restore mana: It's not the player's turn.");
+            return;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogError("PlayerController is null!");
+            return;
+        }
+
+        // Kontrola, zda je mana už na maximu
+        if (playerController.currentMana >= playerController.unitScriptableObject.mana)
+        {
+            Debug.Log("Mana is already full!");
+            BattleHud.FullManaText(playerController.unitScriptableObject.name); // Zobrazí zprávu v HUDu
+            return;
+        }
+
+        int restoredMana = 10; // Množství obnovené many
+        Debug.Log($"Player restored {restoredMana} mana.");
+
+        playerController.RestoreManaTurn(restoredMana, TurnPlayer); // Použije novou metodu
+
+        state = GameState.TURN_ENEMY;
+    }
+
 
     public void ButtonRestart()
     {
@@ -257,6 +286,38 @@ public class BattleController : MonoBehaviour
 
     public void ButtonExit()
     {
-        Application.Quit();
+        if (state == GameState.WIN || state == GameState.LOSS)
+        {
+            Debug.Log("Battle is already over.");
+            return;
+        }
+
+        Debug.Log("Player is escaping the battle...");
+
+        // Získáme exitSpawnPoint z aktuálního BattleTriggeru
+        Transform exitPoint = battleTrigger?.GetExitSpawnPoint();
+        if (exitPoint != null)
+        {
+            player.transform.position = exitPoint.position;
+        }
+        else
+        {
+            Debug.LogWarning("Exit spawn point is not set! Using default position.");
+            player.transform.position += new Vector3(5f, 0f, 5f); // Posune hráèe opodál
+        }
+
+        battleUI.SetActive(false);
+        cameraController.ExitBattleMode();
+        state = GameState.TURN_PLAYER;
+
+        var movement = player.GetComponent<Movement>();
+        if (movement != null)
+        {
+            movement.isInBattle = false;
+        }
+
+        battleTrigger.ResetBattle(); // Resetuje možnost znovu vstoupit do boje
+
+        Debug.Log("Player has successfully escaped the battle.");
     }
 }
