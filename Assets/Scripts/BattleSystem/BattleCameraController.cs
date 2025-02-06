@@ -9,7 +9,7 @@ public class BattleCameraController : MonoBehaviour
     public UnitController unitController;
     public Image fadeImage; // UI obrazovka pro fade efekt
 
-    public float fadeInDuration = 0.25f;  // Ultra rychlý fade in (ztmavení)
+    public float fadeInDuration = 0.75f;  // Delší fade in (ztmavení)
     public float fadeOutDuration = 1.0f;  // Pomalý fade out (odtmavení)
 
     public void EnterBattleMode(Transform battleCameraPosition)
@@ -19,10 +19,10 @@ public class BattleCameraController : MonoBehaviour
 
     private IEnumerator FadeToBattle(Transform battleCameraPosition)
     {
-        Debug.Log("Starting ultra-fast fade to battle mode...");
+        Debug.Log("Starting longer fade to battle mode...");
 
-        // Rychlý fade in (ztmavení - 0.25s)
-        yield return StartCoroutine(FadeScreen(1, fadeInDuration));
+        // Fade in (ztmavení - 0.75s) zaène døíve
+        yield return StartCoroutine(FadeScreen(1, fadeInDuration * 0.75f));
 
         // Pøepnutí do battle módu
         unitController.EnterBattleMode();
@@ -54,8 +54,8 @@ public class BattleCameraController : MonoBehaviour
     {
         Debug.Log("Starting fade from battle mode...");
 
-        // Rychlý fade in (ztmavení - 0.25s)
-        yield return StartCoroutine(FadeScreen(1, fadeInDuration));
+        // Fade in (ztmavení - 0.75s) zaène døíve
+        yield return StartCoroutine(FadeScreen(1, fadeInDuration * 0.75f));
 
         // Pøepnutí zpìt na tøetí osobu
         unitController.ExitBattleMode();
