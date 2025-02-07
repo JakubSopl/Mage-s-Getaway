@@ -57,6 +57,12 @@ public class BattleHud : MonoBehaviour
         ShowTemporaryMessage($"{unitName} uses {actionName}!", 2.5f, false);
     }
 
+    public void CannotEscapeText()
+    {
+        ShowTemporaryMessage("You can only escape during your turn!", 2.5f, true);
+    }
+
+
     public void EndText(bool won)
     {
         SetPermanentMessage(won ? "You WON!\nPress Restart to start again!" : "You LOST!\nPress Restart to start again!");

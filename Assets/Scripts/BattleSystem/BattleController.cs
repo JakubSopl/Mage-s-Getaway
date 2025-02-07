@@ -292,13 +292,33 @@ public class BattleController : MonoBehaviour
             return;
         }
 
+        if (state != GameState.TURN_PLAYER)
+        {
+            Debug.LogWarning("You can only escape during your turn!");
+            BattleHud.CannotEscapeText(); // Zobrazí zprávu pøes BattleHud
+            return;
+        }
+
         Debug.Log("Player is escaping the battle...");
 
         // Získáme exitSpawnPoint z aktuálního BattleTriggeru
         Transform exitPoint = battleTrigger?.GetExitSpawnPoint();
         if (exitPoint != null)
         {
-            player.transform.position = exitPoint.position;
+            Debug.Log("Teleporting player to exit point at: " + exitPoint.position);
+
+            // Ovìøíme, zda má hráè CharacterController a pokud ano, vypneme ho pøed pøesunem
+            CharacterController controller = player.GetComponent<CharacterController>();
+            if (controller != null)
+            {
+                controller.enabled = false;
+                player.transform.position = exitPoint.position;
+                controller.enabled = true;
+            }
+            else
+            {
+                player.transform.position = exitPoint.position;
+            }
         }
         else
         {
@@ -316,8 +336,9 @@ public class BattleController : MonoBehaviour
             movement.isInBattle = false;
         }
 
-        battleTrigger.ResetBattle(); // Resetuje možnost znovu vstoupit do boje
+        battleTrigger.ResetBattle(player); // Resetuje možnost znovu vstoupit do boje
 
         Debug.Log("Player has successfully escaped the battle.");
     }
+
 }

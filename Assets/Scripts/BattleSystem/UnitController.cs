@@ -25,7 +25,7 @@ public class UnitController : MonoBehaviour
     public GameObject attackEffect;
     public GameObject strongAttackEffect;
     public GameObject healEffect;
-    public GameObject restoreManaEffect; 
+    public GameObject restoreManaEffect;
 
     private void SpawnEffect(GameObject effectPrefab, Transform target)
     {
@@ -335,4 +335,50 @@ public class UnitController : MonoBehaviour
             return false;
         return true;
     }
+
+    public void ResetStats(UnitController opponent)
+    {
+        Debug.Log($"{unitScriptableObject.name} stats reset!");
+
+        int previousHealth = currentHealth;
+        int previousMana = currentMana;
+
+        // Reset základních hodnot na maximum
+        currentHealth = unitScriptableObject.health;
+        currentMana = unitScriptableObject.mana;
+        currentDamage = unitScriptableObject.damage;
+        currentDefense = unitScriptableObject.defense;
+
+        if (opponent != null)
+        {
+            // Spoèítáme celkové HP + Mana pro obì jednotky
+            int totalPreviousPlayerStats = previousHealth + previousMana;
+            int totalPreviousEnemyStats = opponent.currentHealth + opponent.currentMana;
+
+            int penaltyHP = 0;
+            int penaltyMana = 0;
+
+            // Ten, kdo mìl ménì celkových statistik, dostane penalizaci
+            if (totalPreviousPlayerStats < totalPreviousEnemyStats)
+            {
+                penaltyHP = Mathf.CeilToInt(unitScriptableObject.health * 0.1f); // -10% HP
+                penaltyMana = Mathf.CeilToInt(unitScriptableObject.mana * 0.1f); // -10% Many
+                Debug.Log($"{unitScriptableObject.name} zaèíná s -{penaltyHP} HP a -{penaltyMana} many.");
+            }
+            else if (totalPreviousEnemyStats < totalPreviousPlayerStats)
+            {
+                opponent.currentHealth = Mathf.Max(1, opponent.currentHealth - Mathf.CeilToInt(opponent.unitScriptableObject.health * 0.1f));
+                opponent.currentMana = Mathf.Max(1, opponent.currentMana - Mathf.CeilToInt(opponent.unitScriptableObject.mana * 0.1f));
+                Debug.Log($"{opponent.unitScriptableObject.name} zaèíná s -10 % HP a many.");
+            }
+
+            // Aplikujeme penalizaci
+            currentHealth = Mathf.Max(1, currentHealth - penaltyHP);
+            currentMana = Mathf.Max(1, currentMana - penaltyMana);
+        }
+
+        UpdateHud(); // Aktualizace UI
+    }
+
+
 }
