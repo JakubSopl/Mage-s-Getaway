@@ -90,7 +90,7 @@ public class UnitController : MonoBehaviour
         currentHealth = unitScriptableObject.health;
         currentMana = unitScriptableObject.mana;
         currentDamage = unitScriptableObject.damage;
-        currentDefense = unitScriptableObject.defense;
+        currentDefense = unitScriptableObject.Defense;
         initialized = true;
 
         UpdateHud();
@@ -161,6 +161,12 @@ public class UnitController : MonoBehaviour
     private IEnumerator EnemyTurn(UnitController other, Action onTurnComplete)
     {
         yield return new WaitForSeconds(Random.Range(1.0f, 2.5f)); // Náhodné zpoždìní pøed útokem
+
+        if (currentMana <= 0)
+        {
+            RestoreManaTurn(15, onTurnComplete); // Pøidá 15 many
+            yield break;
+        }
 
         int actionRoll = Random.Range(0, 10); // Rozdìlení 0-9 pro pøesné šance
 
@@ -347,7 +353,7 @@ public class UnitController : MonoBehaviour
         currentHealth = unitScriptableObject.health;
         currentMana = unitScriptableObject.mana;
         currentDamage = unitScriptableObject.damage;
-        currentDefense = unitScriptableObject.defense;
+        currentDefense = unitScriptableObject.Defense;
 
         if (opponent != null)
         {

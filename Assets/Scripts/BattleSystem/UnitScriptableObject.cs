@@ -9,13 +9,31 @@ public class UnitScriptableObject : ScriptableObject
     public int mana;
 
     public int damage;
-    public int defense;
+    public int attackMana;
 
-    public int healPower = 25;
-    public int healMana = 10;
+    [SerializeField] private int defense;
 
-    // Nové atributy pro útoky
-    public int attackMana = 5;  // Náklady na normální útok
-    public int strongAttackDamage = 35;
-    public int strongAttackMana = 20; // Náklady na silnı útok
+    public int healPower;
+    public int healMana;
+
+    public int strongAttackDamage;
+    public int strongAttackMana;
+
+    public int Defense => defense; // Getter
+
+    public void Initialize()
+    {
+        defense = GetRandomDefense();
+    }
+
+    private int GetRandomDefense()
+    {
+        int roll = Random.Range(1, 101);
+
+        if (roll <= 30) return 1;
+        else if (roll <= 55) return 2;
+        else if (roll <= 75) return 3;
+        else if (roll <= 90) return 4;
+        else return 5;
+    }
 }

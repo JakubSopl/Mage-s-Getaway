@@ -15,7 +15,10 @@ MonoBehaviour:
   name: Mage
   health: 100
   mana: 100
-  damage: 20
+  damage: 15
+  attackMana: 10
   defense: 10
-  healPower: 30
-  healMana: 10
+  healPower: 15
+  healMana: 15
+  strongAttackDamage: 25
+  strongAttackMana: 15

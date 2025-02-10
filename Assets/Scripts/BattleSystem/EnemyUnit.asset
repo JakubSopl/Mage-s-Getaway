@@ -15,10 +15,10 @@ MonoBehaviour:
   name: Enemy
   health: 100
   mana: 100
-  damage: 20
+  damage: 15
+  attackMana: 10
   defense: 10
-  healPower: 30
-  healMana: 10
-  attackMana: 5
-  strongAttackDamage: 35
-  strongAttackMana: 20
+  healPower: 15
+  healMana: 15
+  strongAttackDamage: 25
+  strongAttackMana: 15
