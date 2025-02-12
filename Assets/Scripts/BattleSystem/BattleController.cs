@@ -25,6 +25,8 @@ public class BattleController : MonoBehaviour
     private UnitController enemyController;
     private GameState state;
 
+    private static bool playerEscapedLastBattle = false; // Penalizace za útìk
+
     void Start()
     {
         ShowCursor(true);
@@ -92,6 +94,15 @@ public class BattleController : MonoBehaviour
         player.transform.LookAt(new Vector3(enemy.transform.position.x, player.transform.position.y, enemy.transform.position.z));
         enemy.transform.LookAt(new Vector3(player.transform.position.x, enemy.transform.position.y, player.transform.position.z));
 
+        if (playerController.wasWeakerOnExit)
+        {
+            state = GameState.TURN_ENEMY;
+        }
+        else
+        {
+            state = GameState.TURN_PLAYER;
+        }
+
         if (PlayerHud != null)
         {
             PlayerHud.StartHud(playerController);
@@ -124,7 +135,26 @@ public class BattleController : MonoBehaviour
             Debug.LogError("BattleHud is not assigned!");
         }
 
-        state = GameState.TURN_PLAYER;
+        if (playerEscapedLastBattle)
+        {
+            Debug.Log("Penalizace za útìk: Nepøítel zaèíná první!");
+
+            if (BattleHud != null)
+            {
+                BattleHud.EscapePenaltyText(); 
+            }
+
+            playerEscapedLastBattle = false; // Reset penalizace po aplikování
+            state = GameState.TURN_ENEMY;
+            StartCoroutine(TurnEnemy());
+        }
+
+        else
+        {
+            state = GameState.TURN_PLAYER;
+        }
+
+        //state = GameState.TURN_PLAYER;
     }
 
 
@@ -284,8 +314,12 @@ public class BattleController : MonoBehaviour
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
+    // Funkce pro opuštìní boje tlaèítkem
     public void ButtonExit()
     {
+        // **Penalizace za útìk**
+        playerEscapedLastBattle = true;
+
         if (state == GameState.WIN || state == GameState.LOSS)
         {
             Debug.Log("Battle is already over.");
@@ -301,13 +335,26 @@ public class BattleController : MonoBehaviour
 
         Debug.Log("Player is escaping the battle...");
 
+        // **Nastavení penalizace za útìk**
+        UnitController playerUnit = player.GetComponent<UnitController>();
+        if (playerUnit != null)
+        {
+            int totalCurrentStats = playerUnit.currentHealth + playerUnit.currentMana;
+            int totalMaxStats = playerUnit.unitScriptableObject.health + playerUnit.unitScriptableObject.mana;
+
+            if (totalCurrentStats < totalMaxStats)
+            {
+                playerUnit.wasWeakerOnExit = true;
+                Debug.Log($"{playerUnit.unitScriptableObject.name} utekl se slabšími staty, penalizace se aplikuje pøi dalším boji.");
+            }
+        }
+
         // Získáme exitSpawnPoint z aktuálního BattleTriggeru
         Transform exitPoint = battleTrigger?.GetExitSpawnPoint();
         if (exitPoint != null)
         {
             Debug.Log("Teleporting player to exit point at: " + exitPoint.position);
 
-            // Ovìøíme, zda má hráè CharacterController a pokud ano, vypneme ho pøed pøesunem
             CharacterController controller = player.GetComponent<CharacterController>();
             if (controller != null)
             {
@@ -323,7 +370,7 @@ public class BattleController : MonoBehaviour
         else
         {
             Debug.LogWarning("Exit spawn point is not set! Using default position.");
-            player.transform.position += new Vector3(5f, 0f, 5f); // Posune hráèe opodál
+            player.transform.position += new Vector3(5f, 0f, 5f);
         }
 
         battleUI.SetActive(false);
@@ -340,5 +387,4 @@ public class BattleController : MonoBehaviour
 
         Debug.Log("Player has successfully escaped the battle.");
     }
-
 }

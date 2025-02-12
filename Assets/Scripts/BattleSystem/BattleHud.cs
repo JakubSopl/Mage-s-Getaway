@@ -47,6 +47,11 @@ public class BattleHud : MonoBehaviour
         ShowTemporaryMessage($"{unitName} restored {mana} mana!", 2.5f, true);
     }
 
+    public void FullHealthText(string unitName)
+    {
+        ShowTemporaryMessage($"{unitName} already has full HP!", 2.5f, true);
+    }
+
     public void FullManaText(string unitName)
     {
         ShowTemporaryMessage($"{unitName} already has full mana!", 2.5f, true);
@@ -62,6 +67,10 @@ public class BattleHud : MonoBehaviour
         ShowTemporaryMessage("You can only escape during your turn!", 2.5f, true);
     }
 
+    public void EscapePenaltyText()
+    {
+        ShowTemporaryMessage("Enemy starts because Mage left the battle!", 3f, false);
+    }
 
     public void EndText(bool won)
     {

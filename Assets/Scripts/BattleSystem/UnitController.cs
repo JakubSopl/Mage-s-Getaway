@@ -90,10 +90,23 @@ public class UnitController : MonoBehaviour
         currentHealth = unitScriptableObject.health;
         currentMana = unitScriptableObject.mana;
         currentDamage = unitScriptableObject.damage;
-        currentDefense = unitScriptableObject.Defense;
-        initialized = true;
 
+        // Zajistíme, že se currentDefense opravdu vygeneruje
+        currentDefense = GetRandomDefense();
+        Debug.Log($"{unitScriptableObject.name} má random defense: {currentDefense}");
+
+        initialized = true;
         UpdateHud();
+    }
+    private int GetRandomDefense()
+    {
+        int roll = Random.Range(0, 100); // Rozsah 0-99
+
+        if (roll < 30) return 1;  // 30% šance
+        else if (roll < 55) return 2;  // 25% šance
+        else if (roll < 75) return 3;  // 20% šance
+        else if (roll < 90) return 4;  // 15% šance
+        else return 5; // 10% šance
     }
 
     public void UpdateHud()
@@ -155,20 +168,32 @@ public class UnitController : MonoBehaviour
 
     public void MakeTurn(UnitController other, Action onTurnComplete)
     {
+        if (state == UnitState.BUSY) return; // Zabráníme dvojímu volání tahu
+
+        // Pøi každém tahu nastavíme novou hodnotu obrany
+        currentDefense = GetRandomDefense();
+        Debug.Log($"{unitScriptableObject.name} získal novou obranu: {currentDefense}");
+
+        state = UnitState.BUSY; // Nastavíme jednotku do stavu "zaneprázdnìná"
+
         StartCoroutine(EnemyTurn(other, onTurnComplete));
     }
 
+
     private IEnumerator EnemyTurn(UnitController other, Action onTurnComplete)
     {
-        yield return new WaitForSeconds(Random.Range(1.0f, 2.5f)); // Náhodné zpoždìní pøed útokem
+        // Náhodné zpoždìní pøed útokem pro simulaci reakèní doby nepøítele
+        yield return new WaitForSeconds(Random.Range(1.0f, 2.5f));
 
+        // Pokud má nepøítel 0 many, obnoví manu místo útoku
         if (currentMana <= 0)
         {
             RestoreManaTurn(15, onTurnComplete); // Pøidá 15 many
-            yield break;
+            yield break; // Ukonèí funkci, aby nepokraèovala v dalších akcích
         }
 
-        int actionRoll = Random.Range(0, 10); // Rozdìlení 0-9 pro pøesné šance
+        // Náhodný výbìr akce (hodnota od 0 do 9)
+        int actionRoll = Random.Range(0, 10);
 
         if (actionRoll < 4) // 0-3 (40%) Normální útok
         {
@@ -186,7 +211,7 @@ public class UnitController : MonoBehaviour
             }
             else
             {
-                AttackTurn(other, onTurnComplete); // Pokud nemùže healovat, udìlá normální útok
+                AttackTurn(other, onTurnComplete); // Pokud nemùže healovat, provede normální útok
             }
         }
         else // 8-9 (20%) Obnova many, pokud je pod 50%
@@ -197,12 +222,15 @@ public class UnitController : MonoBehaviour
             }
             else
             {
-                AttackTurn(other, onTurnComplete); // Pokud nemá smysl obnovit manu, udìlá normální útok
+                AttackTurn(other, onTurnComplete); // Pokud není potøeba obnova many, provede normální útok
             }
         }
+
+        // Zajištìní, že tah nepøítele vždy skonèí
+        yield return new WaitForSeconds(1.5f);
+        state = UnitState.IDLE;
+        onTurnComplete?.Invoke();
     }
-
-
 
     public void AttackTurn(UnitController other, Action onTurnComplete)
     {
@@ -250,6 +278,13 @@ public class UnitController : MonoBehaviour
 
     public void HealTurn(Action onTurnComplete)
     {
+        if (currentHealth >= unitScriptableObject.health)
+        {
+            battleHud.FullHealthText(unitScriptableObject.name); // Zpráva, že HP je již plné
+            onTurnComplete?.Invoke();
+            return;
+        }
+
         state = UnitState.BUSY;
         ResetTriggers();
         animator.SetTrigger("HealTrigger");
@@ -288,6 +323,7 @@ public class UnitController : MonoBehaviour
     private IEnumerator ApplyDamageAfterDelay(UnitController target, int damage, Action onTurnComplete)
     {
         yield return new WaitForSeconds(1.0f);
+
         target.TakeDamage(damage);
 
         if (hud != null)
@@ -295,16 +331,20 @@ public class UnitController : MonoBehaviour
             hud.UpdateHud(this);
         }
 
-        state = UnitState.IDLE;
-        onTurnComplete?.Invoke();
+        yield return new WaitForSeconds(1.0f); // Dáme vizuální efekt pøed dalším tahem
+
+        state = UnitState.IDLE; // Ujistíme se, že jednotka dokonèila tah
+        onTurnComplete?.Invoke(); // Pøedáme tah dál
     }
 
     private IEnumerator EndTurnWithDelay(Action onTurnComplete)
     {
         yield return new WaitForSeconds(1.5f);
-        state = UnitState.IDLE;
+
+        state = UnitState.IDLE; // Oprava: vždy zajistí, že jednotka dokonèí svùj tah
         onTurnComplete?.Invoke();
     }
+
 
     public void TakeDamage(int damage)
     {
@@ -342,6 +382,10 @@ public class UnitController : MonoBehaviour
         return true;
     }
 
+    public bool wasWeakerOnExit = false; // Penalizace pro hráèe
+    public bool opponentWasWeakerOnExit = false; // Penalizace pro nepøítele
+
+
     public void ResetStats(UnitController opponent)
     {
         Debug.Log($"{unitScriptableObject.name} stats reset!");
@@ -353,7 +397,8 @@ public class UnitController : MonoBehaviour
         currentHealth = unitScriptableObject.health;
         currentMana = unitScriptableObject.mana;
         currentDamage = unitScriptableObject.damage;
-        currentDefense = unitScriptableObject.Defense;
+        // Vygenerování nové hodnoty pro defense
+        currentDefense = GetRandomDefense();
 
         if (opponent != null)
         {
@@ -361,30 +406,8 @@ public class UnitController : MonoBehaviour
             int totalPreviousPlayerStats = previousHealth + previousMana;
             int totalPreviousEnemyStats = opponent.currentHealth + opponent.currentMana;
 
-            int penaltyHP = 0;
-            int penaltyMana = 0;
-
-            // Ten, kdo mìl ménì celkových statistik, dostane penalizaci
-            if (totalPreviousPlayerStats < totalPreviousEnemyStats)
-            {
-                penaltyHP = Mathf.CeilToInt(unitScriptableObject.health * 0.1f); // -10% HP
-                penaltyMana = Mathf.CeilToInt(unitScriptableObject.mana * 0.1f); // -10% Many
-                Debug.Log($"{unitScriptableObject.name} zaèíná s -{penaltyHP} HP a -{penaltyMana} many.");
-            }
-            else if (totalPreviousEnemyStats < totalPreviousPlayerStats)
-            {
-                opponent.currentHealth = Mathf.Max(1, opponent.currentHealth - Mathf.CeilToInt(opponent.unitScriptableObject.health * 0.1f));
-                opponent.currentMana = Mathf.Max(1, opponent.currentMana - Mathf.CeilToInt(opponent.unitScriptableObject.mana * 0.1f));
-                Debug.Log($"{opponent.unitScriptableObject.name} zaèíná s -10 % HP a many.");
-            }
-
-            // Aplikujeme penalizaci
-            currentHealth = Mathf.Max(1, currentHealth - penaltyHP);
-            currentMana = Mathf.Max(1, currentMana - penaltyMana);
         }
 
         UpdateHud(); // Aktualizace UI
     }
-
-
 }
