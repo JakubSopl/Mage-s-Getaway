@@ -69,7 +69,7 @@ public class BattleHud : MonoBehaviour
 
     public void EscapePenaltyText()
     {
-        ShowTemporaryMessage("Enemy starts because Mage left the battle!", 3f, false);
+        ShowTemporaryMessage("Enemy starts because Mage left the battle!", 3.5f, false);
     }
 
     public void EndText(bool won)

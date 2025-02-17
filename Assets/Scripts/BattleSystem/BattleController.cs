@@ -27,6 +27,9 @@ public class BattleController : MonoBehaviour
 
     private static bool playerEscapedLastBattle = false; // Penalizace za útìk
 
+    public bool isPlayer = false; // Pøidáno pro rozlišení hráèe
+    private DeadMenuManager deadMenuManager; // Odkaz na DeadMenuManager
+
     void Start()
     {
         ShowCursor(true);
@@ -209,13 +212,22 @@ public class BattleController : MonoBehaviour
         }
         else if (state == GameState.LOSS)
         {
-            Destroy(player);
+            // Neodstraòujeme hráèe, místo toho zobrazíme DeadMenu
             BattleHud.EndText(false);
             Debug.Log("Player lost the battle!");
+
+            DeadMenuManager deadMenu = FindObjectOfType<DeadMenuManager>();
+            if (deadMenu != null)
+            {
+                deadMenu.ShowDeadMenu();
+            }
+            else
+            {
+                Debug.LogError("DeadMenuManager nebyl nalezen ve scénì!");
+            }
         }
 
         cameraController.ExitBattleMode();
-
         battleUI.SetActive(false);
 
         var movement = player.GetComponent<Movement>();
@@ -224,6 +236,7 @@ public class BattleController : MonoBehaviour
             movement.isInBattle = false;
         }
     }
+
 
     public void ButtonAttack()
     {

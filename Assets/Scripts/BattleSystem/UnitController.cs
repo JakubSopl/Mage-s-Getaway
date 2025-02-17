@@ -367,7 +367,7 @@ public class UnitController : MonoBehaviour
         ResetTriggers();
         animator.SetTrigger("DeathTrigger");
         yield return new WaitForSeconds(1.5f);
-        Destroy(gameObject);
+        //Destroy(gameObject);
     }
 
     public void Delete()

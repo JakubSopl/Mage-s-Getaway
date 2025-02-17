@@ -13,11 +13,10 @@ MonoBehaviour:
   m_Name: PlayerUnit
   m_EditorClassIdentifier: 
   name: Mage
-  health: 100
+  health: 20
   mana: 100
   damage: 15
   attackMana: 10
-  defense: 10
   healPower: 15
   healMana: 15
   strongAttackDamage: 25
