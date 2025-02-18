@@ -53,6 +53,11 @@ public class Movement : MonoBehaviour
     // Pøidaná promìnná pro režim boje
     public bool isInBattle = false;
 
+    private bool wasGrounded;
+    private bool isWalking;
+    private bool isPlayingIdle;
+    private bool isJumping;
+
     void Update()
     {
         if (isInBattle) return; // Disable movement in battle mode
@@ -102,12 +107,14 @@ public class Movement : MonoBehaviour
         float movementSpeed = Mathf.Clamp(move.magnitude * targetSpeed, 0f, targetSpeed);
         animator.SetFloat("speed", movementSpeed, speedDampTime, Time.deltaTime);
 
-        // Skok s cooldownem
+        // Skok zvuk
         if (Input.GetButtonDown("Jump") && groundedPlayer && Time.time - lastJumpTime > jumpCooldown)
         {
             playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue);
             groundedPlayer = false;
             lastJumpTime = Time.time;
+            isJumping = true;
+            SoundManager.Instance.PlaySound("Jump");
         }
 
         // Gravitaèní logika

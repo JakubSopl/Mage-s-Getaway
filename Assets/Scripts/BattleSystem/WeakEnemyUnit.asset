@@ -10,15 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1f583c4862549ec44a7c8339aac1e80f, type: 3}
-  m_Name: EnemyUnit
+  m_Name: WeakEnemyUnit
   m_EditorClassIdentifier: 
   name: Enemy
-  health: 100
-  mana: 100
-  damage: 15
+  health: 80
+  mana: 80
+  damage: 12
   attackMana: 10
-  defense: 10
   healPower: 15
   healMana: 15
-  strongAttackDamage: 25
-  strongAttackMana: 15
+  strongAttackDamage: 22
+  strongAttackMana: 10
