@@ -5,33 +5,35 @@ using System.Collections.Generic;
 
 public class NPCInteractable : MonoBehaviour
 {
-    [SerializeField] private GameObject chatBubblePrefab; // Prefab bubliny
-    [SerializeField] private List<string> npcTexts; // PrvnÌ list text˘
-    [SerializeField] private List<string> secondaryNpcTexts; // Druh˝ list text˘
-    [SerializeField] private Animator npcAnimator; // Animator pro NPC
-    [SerializeField] private CloakReward cloakRewardScript; // Reference na skript pro odmÏnu hr·Ëe
-    [SerializeField] private JumpBoostReward jumpBoostRewardScript; // Reference na skript pro zv˝öenÌ skoku
-    [SerializeField] private bool grantsCloak; // Zda toto NPC d·v· pl·öù
-    [SerializeField] private bool grantsJumpBoost; // Zda toto NPC d·v· zv˝öen˝ skok
-    private GameObject activeChatBubble; // AktivnÌ instance bubliny
-    [SerializeField] private Transform cameraTransform; // Kamera hr·Ëe
-    [SerializeField] private Transform playerTransform; // Transform hr·Ëe
-    [SerializeField] private float typingSpeed; // Rychlost psanÌ textu
-    [SerializeField] private float minFontSize; // Minim·lnÌ velikost textu
-    [SerializeField] private float maxFontSize; // Maxim·lnÌ velikost textu
-    [SerializeField] private bool doNotRotateToPlayer; // NastavenÌ, zda se NPC otoËÌ k hr·Ëi
-    private int currentTextIndex = 0; // Aktu·lnÌ index textu v prvnÌm listu
-    private int currentSecondaryTextIndex = 0; // Aktu·lnÌ index textu ve druhÈm listu
-    private bool isUsingSecondaryTexts = false; // Flag, kter˝ urËuje, zda se pouûÌv· druh˝ list text˘
-    private bool isTalking = false; // Lok·lnÌ stav mluvenÌ
+    [SerializeField] private GameObject chatBubblePrefab;
+    [SerializeField] private List<string> npcTexts;
+    [SerializeField] private List<string> secondaryNpcTexts;
+    [SerializeField] private Animator npcAnimator;
+    [SerializeField] private CloakReward cloakRewardScript;
+    [SerializeField] private JumpBoostReward jumpBoostRewardScript;
+    [SerializeField] private bool grantsCloak;
+    [SerializeField] private bool grantsJumpBoost;
+    [SerializeField] private bool grantsPortal; // P¯id·no: zda NPC aktivuje port·l
+    [SerializeField] private GameObject portalObject; // P¯id·no: odkaz na port·lov˝ objekt
 
-    private Coroutine hideBubbleCoroutine; // Reference na aktivnÌ korutinu pro skrytÌ bubliny
+    private GameObject activeChatBubble;
+    [SerializeField] private Transform cameraTransform;
+    [SerializeField] private Transform playerTransform;
+    [SerializeField] private float typingSpeed;
+    [SerializeField] private float minFontSize;
+    [SerializeField] private float maxFontSize;
+    [SerializeField] private bool doNotRotateToPlayer;
+
+    private int currentTextIndex = 0;
+    private int currentSecondaryTextIndex = 0;
+    private bool isUsingSecondaryTexts = false;
+    private bool isTalking = false;
+    private Coroutine hideBubbleCoroutine;
 
     private void Update()
     {
         if (activeChatBubble != null)
         {
-            // Udrûuj bublinu orientovanou na kameru hr·Ëe
             activeChatBubble.transform.LookAt(cameraTransform);
             activeChatBubble.transform.rotation = Quaternion.Euler(0, activeChatBubble.transform.rotation.eulerAngles.y, 0);
         }
@@ -49,7 +51,6 @@ public class NPCInteractable : MonoBehaviour
             Destroy(activeChatBubble);
         }
 
-        // OtoË NPC smÏrem k hr·Ëi, pokud je to povoleno
         if (!doNotRotateToPlayer)
         {
             FacePlayer();
@@ -76,12 +77,11 @@ public class NPCInteractable : MonoBehaviour
             }
             else
             {
-                isUsingSecondaryTexts = true; // Switch to the second list for the next interaction
-                Interact(); // Immediately continue with secondary texts
+                isUsingSecondaryTexts = true;
+                Interact();
             }
         }
 
-        // Restartuj ËasovaË pro skrytÌ bubliny
         if (hideBubbleCoroutine != null)
         {
             StopCoroutine(hideBubbleCoroutine);
@@ -103,7 +103,6 @@ public class NPCInteractable : MonoBehaviour
         if (chatBubblePrefab == null)
             return;
 
-        // Spawn bubliny nad NPC
         Vector3 spawnPosition = transform.position + Vector3.up * 3;
         activeChatBubble = Instantiate(chatBubblePrefab, spawnPosition, Quaternion.identity);
 
@@ -113,11 +112,9 @@ public class NPCInteractable : MonoBehaviour
             textComponent.enableAutoSizing = true;
             textComponent.fontSizeMin = minFontSize;
             textComponent.fontSizeMax = maxFontSize;
-
             StartCoroutine(TypeText(textComponent, text));
         }
 
-        // Nastav bublinu jako dÌtÏ NPC
         activeChatBubble.transform.SetParent(transform);
     }
 
@@ -130,7 +127,7 @@ public class NPCInteractable : MonoBehaviour
         foreach (char letter in text)
         {
             if (textComponent == null)
-                yield break; // Pokud je textComponent zniËen bÏhem psanÌ, ukonËÌme korutinu
+                yield break;
 
             textComponent.text += letter;
             yield return new WaitForSeconds(typingSpeed);
@@ -152,7 +149,7 @@ public class NPCInteractable : MonoBehaviour
             activeChatBubble = null;
         }
 
-        EndConversation(); // P¯epni NPC zpÏt do stavu idle
+        EndConversation();
     }
 
     private void FacePlayer()
@@ -161,7 +158,7 @@ public class NPCInteractable : MonoBehaviour
             return;
 
         Vector3 directionToPlayer = (playerTransform.position - transform.position).normalized;
-        directionToPlayer.y = 0; // Zabr·nÌme skl·pÏnÌ nebo nakl·nÏnÌ
+        directionToPlayer.y = 0;
         transform.rotation = Quaternion.LookRotation(directionToPlayer);
     }
 
@@ -193,6 +190,11 @@ public class NPCInteractable : MonoBehaviour
             if (grantsJumpBoost && jumpBoostRewardScript != null)
             {
                 jumpBoostRewardScript.GrantJumpBoost();
+            }
+
+            if (grantsPortal && portalObject != null)
+            {
+                portalObject.SetActive(true); // Aktivuje port·l
             }
         }
     }

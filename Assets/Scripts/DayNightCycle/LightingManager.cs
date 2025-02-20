@@ -3,19 +3,18 @@ using UnityEngine;
 [ExecuteAlways]
 public class LightingManager : MonoBehaviour
 {
-    // Scene References
     [SerializeField] private Light DirectionalLight;
     [SerializeField] private LightingPreset1 Preset;
 
-    // Variables
-    [SerializeField, Range(0, 24)] private float TimeOfDay = 10f; // Default to 10:00 for baseline lighting
-    [SerializeField] private float daytimeSpeedMultiplier = 0.05f;
-    [SerializeField] private float nighttimeSpeedMultiplier = 0.1f;
-    [SerializeField] private float sunriseSunsetMultiplier = 0.015f; 
+    [SerializeField, Range(0, 24)] private float TimeOfDay = 10f;
+    [SerializeField] private float daytimeSpeedMultiplier;
+    [SerializeField] private float nighttimeSpeedMultiplier;
+    [SerializeField] private float sunriseSunsetMultiplier;
 
-    // Light intensity settings - baseline for consistent visibility
-    [SerializeField] private float baselineDirectionalIntensity = 1f; // Baseline intensity for all times
-    [SerializeField] private float baselineAmbientIntensity = 1f; // Baseline ambient intensity
+    [SerializeField] private float timeScaleFactor = 0.33f; // 0.33 znamená 3x pomalejší den
+
+    [SerializeField] private float baselineDirectionalIntensity = 1f;
+    [SerializeField] private float baselineAmbientIntensity = 1f;
 
     private void Update()
     {
@@ -24,29 +23,28 @@ public class LightingManager : MonoBehaviour
 
         if (Application.isPlaying)
         {
-            // Determine the speed multiplier based on the current time of day
             float timeMultiplier;
 
-            if (TimeOfDay >= 4.5f && TimeOfDay < 6.2f) // Sunrise period (4:30 - 6:12)
+            if (TimeOfDay >= 4.5f && TimeOfDay < 6.2f)
             {
                 timeMultiplier = sunriseSunsetMultiplier;
             }
-            else if (TimeOfDay >= 17.8f && TimeOfDay < 19.2f) // Sunset period (17:48 - 19:12)
+            else if (TimeOfDay >= 17.8f && TimeOfDay < 19.2f)
             {
                 timeMultiplier = sunriseSunsetMultiplier;
             }
-            else if (TimeOfDay >= 5f && TimeOfDay < 17f) // Daytime period (5:00 - 17:00)
+            else if (TimeOfDay >= 5f && TimeOfDay < 17f)
             {
                 timeMultiplier = daytimeSpeedMultiplier;
             }
-            else // Nighttime period
+            else
             {
                 timeMultiplier = nighttimeSpeedMultiplier;
             }
 
-            // Update time of day with the appropriate speed multiplier
-            TimeOfDay += Time.deltaTime * timeMultiplier;
-            TimeOfDay %= 24; // Modulus to keep TimeOfDay within 0-24
+            // Použití globálního zpomalovacího faktoru
+            TimeOfDay += Time.deltaTime * timeMultiplier * timeScaleFactor;
+            TimeOfDay %= 24;
 
             UpdateLighting(TimeOfDay / 24f);
         }
@@ -58,36 +56,32 @@ public class LightingManager : MonoBehaviour
 
     private void UpdateLighting(float timePercent)
     {
-        // Set ambient and fog color based on the gradient with slight variations based on timePercent
         Color ambientColor = Preset.AmbientColor.Evaluate(timePercent);
         Color fogColor = Preset.FogColor.Evaluate(timePercent);
 
-        // Apply slight variations to simulate sunrise, sunset, and nighttime without reducing visibility
-        if (TimeOfDay >= 5 && TimeOfDay < 17) // Daytime (5:00 to 17:00)
+        if (TimeOfDay >= 5 && TimeOfDay < 17)
         {
             RenderSettings.ambientLight = ambientColor;
             RenderSettings.fogColor = fogColor;
         }
-        else if (TimeOfDay >= 4.5f && TimeOfDay < 6.2f) // Sunrise
+        else if (TimeOfDay >= 4.5f && TimeOfDay < 6.2f)
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.white, 0.2f); // Warmer tint
+            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.white, 0.2f);
             RenderSettings.fogColor = Color.Lerp(fogColor, Color.yellow, 0.1f);
         }
-        else if (TimeOfDay >= 17.8f && TimeOfDay < 19.2f) // Sunset
+        else if (TimeOfDay >= 17.8f && TimeOfDay < 19.2f)
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.red, 0.2f); // Warm sunset tint
+            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.red, 0.2f);
             RenderSettings.fogColor = Color.Lerp(fogColor, Color.red, 0.1f);
         }
-        else // Nighttime
+        else
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.blue, 0.2f); // Slightly cooler tint
+            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.blue, 0.2f);
             RenderSettings.fogColor = Color.Lerp(fogColor, Color.black, 0.2f);
         }
 
-        // Set consistent ambient and directional light intensities based on the baseline values
         RenderSettings.ambientIntensity = baselineAmbientIntensity;
 
-        // If the directional light is set, update its color and intensity
         if (DirectionalLight != null)
         {
             DirectionalLight.color = Preset.DirectionalColor.Evaluate(timePercent);
@@ -96,18 +90,15 @@ public class LightingManager : MonoBehaviour
         }
     }
 
-    // Try to find a directional light to use if we haven't set one
     private void OnValidate()
     {
         if (DirectionalLight != null)
             return;
 
-        // Search for lighting tab sun
         if (RenderSettings.sun != null)
         {
             DirectionalLight = RenderSettings.sun;
         }
-        // Search scene for light that fits criteria (directional)
         else
         {
             Light[] lights = GameObject.FindObjectsOfType<Light>();
