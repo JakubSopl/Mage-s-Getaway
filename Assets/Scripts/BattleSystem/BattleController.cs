@@ -51,6 +51,8 @@ public class BattleController : MonoBehaviour
     {
         Debug.Log("SetupBattle started.");
 
+        ShowCursor(true);
+
         this.player = player;
         this.enemy = enemy;
         this.battleTrigger = trigger; // Uložíme aktuální BattleTrigger
@@ -159,14 +161,6 @@ public class BattleController : MonoBehaviour
 
         //state = GameState.TURN_PLAYER;
     }
-
-
-    private IEnumerator DebugCheckHealth()
-    {
-        yield return new WaitForSeconds(0.2f);
-        Debug.Log($"[Delayed Check] Player HP: {playerController.currentHealth}, Enemy HP: {enemyController.currentHealth}");
-    }
-
 
     private void TurnPlayer()
     {

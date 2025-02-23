@@ -27,6 +27,21 @@ public class UnitController : MonoBehaviour
     public GameObject healEffect;
     public GameObject restoreManaEffect;
 
+    public AudioSource audioSource;
+    public AudioClip healSound;
+    public AudioClip manaRestoreSound;
+    public AudioClip attackSound;
+    public AudioClip strongAttackSound;
+    public AudioClip exitBattleSound;
+
+    public void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
+    }
+
     private void SpawnEffect(GameObject effectPrefab, Transform target)
     {
         if (effectPrefab == null || target == null) return;
@@ -151,6 +166,7 @@ public class UnitController : MonoBehaviour
         {
             animator.SetBool("IsInBattle", false);
         }
+        PlaySound(exitBattleSound);
     }
 
     private void ResetTriggers()
@@ -250,6 +266,7 @@ public class UnitController : MonoBehaviour
 
         // Spawn efektu na cíli
         SpawnEffect(attackEffect, other.transform);
+        PlaySound(attackSound);
 
         StartCoroutine(ApplyDamageAfterDelay(other, damage, onTurnComplete));
     }
@@ -272,6 +289,7 @@ public class UnitController : MonoBehaviour
 
         // Spawn efektu na cíli
         SpawnEffect(strongAttackEffect, other.transform);
+        PlaySound(strongAttackSound);
 
         StartCoroutine(ApplyDamageAfterDelay(other, damage, onTurnComplete));
     }
@@ -296,6 +314,7 @@ public class UnitController : MonoBehaviour
 
         // Spawn efektu na sobì
         SpawnEffect(healEffect, this.transform);
+        PlaySound(healSound);
 
         UpdateHud();
 
@@ -313,6 +332,7 @@ public class UnitController : MonoBehaviour
 
         // Spawn efektu na sobì
         SpawnEffect(restoreManaEffect, this.transform);
+        PlaySound(manaRestoreSound);
 
         UpdateHud();
 

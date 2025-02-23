@@ -30,11 +30,10 @@ public class Movement : MonoBehaviour
     public float stickToGroundForce = -5f; // Dodateèná síla pro pøilepení k zemi
     public int groundCheckRayCount = 5; // Poèet Raycastù pro detekci schodù
 
-    // Audio
     public AudioSource audioSource;
-    public AudioClip walkClip;
-    public AudioClip jumpClip;
-    public AudioClip landClip;
+    public AudioClip footstepsClip;
+    public AudioClip fallingClip;
+    public AudioClip idleClip;
 
     private bool isSprinting = false;
 
@@ -48,24 +47,24 @@ public class Movement : MonoBehaviour
     public float fadeDuration = 0.2f;
 
     private bool isRespawning = false;
-    private bool finalCheckpointReached = false; // Track if the final checkpoint is reached
 
     // Pøidaná promìnná pro režim boje
     public bool isInBattle = false;
-
-    private bool wasGrounded;
-    private bool isWalking;
-    private bool isPlayingIdle;
-    private bool isJumping;
+    private bool wasGroundedLastFrame;
+    private bool isFalling = false;
+    private bool isIdlePlaying = false;
+    private bool isFootstepsPlaying = false;
+    private float lastSoundTime = 0f;
+    private float idleDelay = 1f; // Idle zvuk se pøehraje až po 1s neèinnosti
 
     void Update()
     {
+
         if (isInBattle) return; // Disable movement in battle mode
 
         // Zjištìní, zda je hráè na zemi
         bool isGroundedNow = IsGroundedByMultipleRaycasts() || (controller.isGrounded && !IsInTrigger());
 
-        // Pokud je hráè na zemi, aktualizujeme èas
         if (isGroundedNow)
         {
             lastGroundedTime = Time.time;
@@ -73,7 +72,6 @@ public class Movement : MonoBehaviour
         }
         else
         {
-            // Používáme èasovou toleranci, aby pøechod na padání nebyl okamžitý
             groundedPlayer = Time.time - lastGroundedTime <= groundTimeThreshold;
         }
 
@@ -113,7 +111,6 @@ public class Movement : MonoBehaviour
             playerVelocity.y = Mathf.Sqrt(jumpSpeed * -2.0f * gravityValue);
             groundedPlayer = false;
             lastJumpTime = Time.time;
-            isJumping = true;
             SoundManager.Instance.PlaySound("Jump");
         }
 
@@ -129,6 +126,19 @@ public class Movement : MonoBehaviour
         {
             playerVelocity.y += gravityValue * Time.deltaTime;
             playerVelocity.y = Mathf.Max(playerVelocity.y, -20f); // Omezíme maximální rychlost pádu
+
+            if (!isGroundedNow && !audioSource.isPlaying)
+            {
+                Debug.Log("Playing falling sound");
+                audioSource.clip = fallingClip;
+                audioSource.loop = false;
+                audioSource.Play();
+            }
+            else if (isGroundedNow && audioSource.isPlaying && audioSource.clip == fallingClip)
+            {
+                Debug.Log("Stopping falling sound");
+                audioSource.Stop();
+            }
         }
 
         controller.Move(playerVelocity * Time.deltaTime);
@@ -142,6 +152,193 @@ public class Movement : MonoBehaviour
         {
             animator.SetBool("run", false);
         }
+
+        HandleFootsteps(movementSpeed);
+        HandleLanding();
+        HandleFallingSound();
+        HandleIdleSound();
+    }
+
+    private Coroutine fadeOutRoutine;
+    private float fallingVolume = 0.2f; // Poèáteèní hlasitost
+    private float maxFallingVolume = 1f; // Maximální hlasitost
+    private float fallingTime = 0f; // Jak dlouho hráè padá
+
+    private void HandleFallingSound()
+    {
+        bool isGrounded = IsGroundedByMultipleRaycasts() || (controller.isGrounded && !IsInTrigger());
+
+        if (!isGrounded)
+        {
+            if (!isFalling || audioSource.clip != fallingClip)
+            {
+                Debug.Log("Playing Falling Sound");
+                audioSource.clip = fallingClip;
+                audioSource.loop = true;
+                audioSource.volume = fallingVolume;
+                audioSource.Play();
+                isFalling = true;
+                fallingTime = 0f;
+
+                if (fadeOutRoutine != null)
+                {
+                    StopCoroutine(fadeOutRoutine);
+                    fadeOutRoutine = null;
+                }
+            }
+            fallingTime += Time.deltaTime;
+            float volumeIncrease = Mathf.Clamp01(fallingTime / 2f);
+            audioSource.volume = Mathf.Lerp(fallingVolume, maxFallingVolume, volumeIncrease);
+        }
+        else
+        {
+            if (isFalling && audioSource.clip == fallingClip)
+            {
+                Debug.Log("Fading out Falling Sound");
+                fadeOutRoutine = StartCoroutine(SmoothFadeOutFallingSound(1f));
+                isFalling = false;
+            }
+        }
+    }
+
+    private IEnumerator SmoothFadeOutFallingSound(float duration)
+    {
+        float startVolume = audioSource.volume;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = elapsed / duration;
+            audioSource.volume = startVolume * Mathf.Pow(1 - progress, 2);
+            yield return null;
+        }
+
+        audioSource.Stop();
+        audioSource.volume = 1f; //  RESET hlasitosti na 1 po dopadu
+    }
+
+    private void HandleIdleSound()
+    {
+        bool isMoving = animator.GetFloat("speed") > 0;
+        bool isOtherSoundPlaying = isFootstepsPlaying || isFalling ||
+                                   (audioSource.isPlaying && audioSource.clip != idleClip);
+        float currentTime = Time.time;
+
+        if (groundedPlayer && !isMoving && !isOtherSoundPlaying)
+        {
+            if (!isIdlePlaying)
+            {
+                Debug.Log("Playing Idle Sound");
+
+                //  Vždy stopni pøedchozí zvuk, aby nebyl blokován
+                audioSource.Stop();
+                audioSource.clip = idleClip;
+                audioSource.loop = true;
+                audioSource.volume = 1f;
+                audioSource.Play();
+
+                isIdlePlaying = true;
+                isFootstepsPlaying = false;
+                isFalling = false;
+            }
+        }
+        else
+        {
+            if (isIdlePlaying && (isMoving || isOtherSoundPlaying))
+            {
+                Debug.Log("Stopping Idle Sound");
+                audioSource.Stop();
+                isIdlePlaying = false;
+                lastSoundTime = currentTime;
+            }
+        }
+    }
+
+    private void HandleFootsteps(float speed)
+    {
+        if (isInBattle)
+        {
+            if (audioSource.isPlaying && isFootstepsPlaying)
+            {
+                Debug.Log("Stopping Footsteps Sound (Battle)");
+                audioSource.Stop();
+                isFootstepsPlaying = false;
+            }
+            return;
+        }
+
+        if (groundedPlayer && speed > 0)
+        {
+            float targetPitch = isSprinting ? 0.8f : 0.5f; // Lepší pøechod mezi chùzí a bìhem
+
+            if (!isFootstepsPlaying || audioSource.clip != footstepsClip)
+            {
+                Debug.Log("Playing Footsteps Sound");
+                audioSource.Stop();
+                audioSource.clip = footstepsClip;
+                audioSource.loop = true;
+                audioSource.volume = 1.0f;
+                audioSource.pitch = targetPitch;
+                audioSource.Play();
+
+                isFootstepsPlaying = true;
+            }
+            else if (audioSource.isPlaying && Mathf.Abs(audioSource.pitch - targetPitch) > 0.05f)
+            {
+                // Pokud se zmìní rychlost, upravíme plynule pitch
+                audioSource.pitch = targetPitch;
+            }
+            else if (!audioSource.isPlaying)
+            {
+                Debug.Log("Restarting Footsteps Sound");
+                audioSource.Play();
+            }
+        }
+        else
+        {
+            if (isFootstepsPlaying && audioSource.clip == footstepsClip)
+            {
+                Debug.Log("Stopping Footsteps Sound (Idle or Jumping)");
+                audioSource.Stop();
+                audioSource.clip = null;
+                isFootstepsPlaying = false;
+            }
+        }
+
+        // Pokud hráè dopadne na zem a stále drží pohyb, obnovíme zvuk
+        if (groundedPlayer && !isFootstepsPlaying && speed > 0)
+        {
+            Debug.Log("Resuming Footsteps Sound after Landing");
+            audioSource.clip = footstepsClip;
+            audioSource.loop = true;
+            audioSource.volume = 1.0f;
+            audioSource.pitch = isSprinting ? 1.0f : 0.75f;
+            audioSource.Play();
+            isFootstepsPlaying = true;
+        }
+    }
+    private void HandleLanding()
+    {
+        bool isGroundedNow = IsGroundedByMultipleRaycasts() || (controller.isGrounded && !IsInTrigger());
+
+        if (isGroundedNow)
+        {
+            lastGroundedTime = Time.time;
+            groundedPlayer = true;
+
+            // Pøehraje zvuk dopadu, pokud hráè pøedtím nebyl na zemi
+            if (!wasGroundedLastFrame)
+            {
+                SoundManager.Instance.PlaySound("Land");
+            }
+        }
+        else
+        {
+            groundedPlayer = Time.time - lastGroundedTime <= groundTimeThreshold;
+        }
+
+        wasGroundedLastFrame = groundedPlayer; // Uloží aktuální stav pro další snímek
     }
 
     public void EnterBattleMode(Vector3 battlePosition)
@@ -156,6 +353,11 @@ public class Movement : MonoBehaviour
         // Reset animací
         animator.SetFloat("speed", 0);
         animator.SetBool("run", false);
+
+        if (audioSource.isPlaying)
+        {
+            audioSource.Stop();
+        }
     }
 
     public void ExitBattleMode()
@@ -215,7 +417,6 @@ public class Movement : MonoBehaviour
         if (respawnPoint2 != null)
         {
             respawnPoint = respawnPoint2;
-            finalCheckpointReached = true;
             Debug.Log("Final checkpoint reached. Respawn point updated.");
         }
     }
