@@ -19,7 +19,6 @@ public class SettingsController : MonoBehaviour {
     {
         gameSettings = new Settings();
         fullscreenToggle.onValueChanged.AddListener(delegate { FullscreenToggle(); });
-        resolutionDrop.onValueChanged.AddListener(delegate { ResolutionChange(); });
         textQualityDrop.onValueChanged.AddListener(delegate { TextQChange(); });
         antialiasingDrop.onValueChanged.AddListener(delegate { AntialiasingChange(); });
         vSyncDrop.onValueChanged.AddListener(delegate { VsyncChange(); });
@@ -40,11 +39,6 @@ public class SettingsController : MonoBehaviour {
        gameSettings.fullscreen = Screen.fullScreen = fullscreenToggle.isOn;
     }
 
-    public void ResolutionChange()
-    {
-        Screen.SetResolution(resolutions[resolutionDrop.value].width, resolutions[resolutionDrop.value].height, Screen.fullScreen, resolutions[resolutionDrop.value].refreshRate);
-        gameSettings.resolutionIndex = resolutionDrop.value;
-    }
 
     public void AntialiasingChange()
     {

@@ -9,6 +9,8 @@ public class SoundManager : MonoBehaviour
     public AudioSource musicSource;
 
     public List<AudioClip> soundEffects; // Seznam všech zvukových efektù
+    public AudioClip soundtrack; // Pøidej SoundTrack sem
+
     private Dictionary<string, AudioClip> soundEffectsDict;
 
     private void Awake()
@@ -30,6 +32,12 @@ public class SoundManager : MonoBehaviour
         {
             soundEffectsDict[clip.name] = clip;
         }
+
+        // Spustíme soundtrack, pokud je pøiøazen
+        if (soundtrack != null)
+        {
+            PlayLoopingMusic(soundtrack);
+        }
     }
 
     public void PlaySound(string soundName)
@@ -46,7 +54,26 @@ public class SoundManager : MonoBehaviour
 
     public void PlayMusic(AudioClip music)
     {
-        musicSource.clip = music;
-        musicSource.Play();
+        if (music != null)
+        {
+            musicSource.clip = music;
+            musicSource.loop = false; // Normální pøehrání bez loopu
+            musicSource.Play();
+        }
+    }
+
+    public void PlayLoopingMusic(AudioClip music)
+    {
+        if (music != null)
+        {
+            musicSource.clip = music;
+            musicSource.loop = true; // Aktivuje opakování
+            musicSource.Play();
+        }
+    }
+
+    public void StopMusic()
+    {
+        musicSource.Stop();
     }
 }

@@ -83,9 +83,37 @@ public class MenuController : MonoBehaviour {
     {
         Audio = gameObject.GetComponent<AudioSource>();
         instance = this;
-        //Set the activeBackground array length
-        if (useParallax) { activeBackground = new GameObject[backgroundsParallax.Length]; } else { activeBackground = new GameObject[backgrounds.Length]; }
-        initiate();      
+
+        // Odebrání "Select Scene" z options
+        int indexToRemove = System.Array.IndexOf(options, "Select Scene");
+
+        if (indexToRemove >= 0)
+        {
+            // Aktualizace options (odstranění "Select Scene")
+            List<string> updatedOptions = new List<string>(options);
+            updatedOptions.RemoveAt(indexToRemove);
+            options = updatedOptions.ToArray();
+
+            // Aktualizace eventů, aby se indexy neposunuly špatně
+            List<UnityEvent> updatedEvents = new List<UnityEvent>(Events);
+            if (indexToRemove < updatedEvents.Count)
+            {
+                updatedEvents.RemoveAt(indexToRemove);
+            }
+            Events = updatedEvents.ToArray();
+        }
+
+        // Nastavení délky pole activeBackground
+        if (useParallax)
+        {
+            activeBackground = new GameObject[backgroundsParallax.Length];
+        }
+        else
+        {
+            activeBackground = new GameObject[backgrounds.Length];
+        }
+
+        initiate();
     }
 
 	void Update () {
@@ -194,7 +222,24 @@ public class MenuController : MonoBehaviour {
     //Press enter or click on option 
     public void pressEnter()
     {
-        Events[option].Invoke();
+            switch (option)
+            {
+                case 0:
+                    newGame(); // Spustí novou hru
+                    break;
+                case 1:
+                    openOptions(); // Otevře menu s nastavením
+                    break;
+                case 2:
+                    exitMenuOpen(); // Otevře exit menu
+                    break;
+                default:
+                    if (option < Events.Length)
+                    {
+                        Events[option].Invoke(); // Ostatní možnosti se chovají jako dříve
+                    }
+                    break;
+            }
     }
 
     //Function to go foward in the menu
@@ -220,19 +265,21 @@ public class MenuController : MonoBehaviour {
             Audio.Play();
         }
     }
-    
-    //New Game event
+
     public void newGame()
     {
-        //Loads the first scene, change the number to your desired scene
         SceneManager.LoadScene(1);
     }
 
-    //Continue
     public void continueGame()
     {
-        //In this part you need to include your save game script to implement the continue function
+        if (PlayerPrefs.HasKey("SavedScene"))
+        {
+            int savedScene = PlayerPrefs.GetInt("SavedScene");
+            SceneManager.LoadScene(savedScene);
+        }
     }
+
 
     //Select scene Event
     public void selectScene()

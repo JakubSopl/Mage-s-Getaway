@@ -13,8 +13,10 @@ public class NPCInteractable : MonoBehaviour
     [SerializeField] private JumpBoostReward jumpBoostRewardScript;
     [SerializeField] private bool grantsCloak;
     [SerializeField] private bool grantsJumpBoost;
-    [SerializeField] private bool grantsPortal; // Pøidáno: zda NPC aktivuje portál
-    [SerializeField] private GameObject portalObject; // Pøidáno: odkaz na portálový objekt
+    [SerializeField] private bool grantsPortal;
+    [SerializeField] private GameObject portalObject;
+    [SerializeField] private AudioSource npcAudioSource;
+    [SerializeField] private AudioClip talkingClip;
 
     private GameObject activeChatBubble;
     [SerializeField] private Transform cameraTransform;
@@ -96,6 +98,13 @@ public class NPCInteractable : MonoBehaviour
         {
             npcAnimator.SetBool("isTalking", true);
         }
+        if (npcAudioSource != null && talkingClip != null)
+        {
+            npcAudioSource.clip = talkingClip;
+            npcAudioSource.loop = true;
+            npcAudioSource.volume = 0.1f; // Nastavení hlasitosti na polovinu
+            npcAudioSource.Play();
+        }
     }
 
     private void ShowBubble(string text)
@@ -169,6 +178,10 @@ public class NPCInteractable : MonoBehaviour
         {
             npcAnimator.SetBool("isTalking", false);
         }
+        if (npcAudioSource != null && npcAudioSource.isPlaying)
+        {
+            npcAudioSource.Stop();
+        }
 
         bool allTextsCompleted = isUsingSecondaryTexts && currentSecondaryTextIndex >= secondaryNpcTexts.Count;
         bool primaryTextsCompleted = !isUsingSecondaryTexts && currentTextIndex >= npcTexts.Count;
@@ -194,7 +207,7 @@ public class NPCInteractable : MonoBehaviour
 
             if (grantsPortal && portalObject != null)
             {
-                portalObject.SetActive(true); // Aktivuje portál
+                portalObject.SetActive(true);
             }
         }
     }

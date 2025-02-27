@@ -33,6 +33,8 @@ public class UnitController : MonoBehaviour
     public AudioClip attackSound;
     public AudioClip strongAttackSound;
     public AudioClip exitBattleSound;
+    public AudioClip damageSound;
+
 
     public void PlaySound(AudioClip clip)
     {
@@ -166,7 +168,11 @@ public class UnitController : MonoBehaviour
         {
             animator.SetBool("IsInBattle", false);
         }
-        PlaySound(exitBattleSound);
+        // Pøehrání exitBattleSound na 25% hlasitosti
+        if (exitBattleSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(exitBattleSound, 0.25f);
+        }
     }
 
     private void ResetTriggers()
@@ -370,6 +376,10 @@ public class UnitController : MonoBehaviour
     {
         currentHealth -= damage;
         currentHealth = Mathf.Clamp(currentHealth, 0, unitScriptableObject.health);
+
+        // Pøehraje zvuk poškození
+        PlaySound(damageSound);
+
         battleHud.DamageText(unitScriptableObject.name, damage);
         ResetTriggers();
         animator.SetTrigger("TakeDamageTrigger");
@@ -381,6 +391,7 @@ public class UnitController : MonoBehaviour
             StartCoroutine(DeathSequence());
         }
     }
+
 
     private IEnumerator DeathSequence()
     {

@@ -5,6 +5,8 @@ public class DogBehavior : MonoBehaviour
 {
     public Animator dogAnimator;       // Animator psa
     public Transform player;           // Transform hráèe
+    public AudioSource audioSource;    // Audio source pro pøehrávání zvukù
+    public AudioClip barkSound;        // Zvuk štìkání
 
     public float angryDistance = 5.0f;        // Nastavení vzdálenosti, pøi které se pes stane naštvaným
     public float lookDistance = 15.0f;        // Nastavení vzdálenosti, pøi které se pes otáèí za hráèem
@@ -30,6 +32,13 @@ public class DogBehavior : MonoBehaviour
             isAngryLoopActive = true;
             dogAnimator.SetBool("isSitting", false); // Zruší sedící stav
             angryLoopCoroutine = StartCoroutine(AngryTailLoop());
+
+            // Spustí zvuk štìkání
+            if (!audioSource.isPlaying && barkSound != null)
+            {
+                audioSource.clip = barkSound;
+                audioSource.Play();
+            }
         }
         else if (distance > angryDistance && isAngryLoopActive)
         {
@@ -38,6 +47,12 @@ public class DogBehavior : MonoBehaviour
             {
                 StopCoroutine(angryLoopCoroutine);
                 angryLoopCoroutine = null;
+            }
+
+            // Zastaví zvuk štìkání
+            if (audioSource.isPlaying)
+            {
+                audioSource.Stop();
             }
 
             // Nastaví psa zpìt do sedícího stavu po mávání ocasem

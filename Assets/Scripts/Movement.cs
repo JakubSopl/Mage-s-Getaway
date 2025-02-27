@@ -52,10 +52,7 @@ public class Movement : MonoBehaviour
     public bool isInBattle = false;
     private bool wasGroundedLastFrame;
     private bool isFalling = false;
-    private bool isIdlePlaying = false;
     private bool isFootstepsPlaying = false;
-    private float lastSoundTime = 0f;
-    private float idleDelay = 1f; // Idle zvuk se pøehraje až po 1s neèinnosti
 
     void Update()
     {
@@ -156,7 +153,6 @@ public class Movement : MonoBehaviour
         HandleFootsteps(movementSpeed);
         HandleLanding();
         HandleFallingSound();
-        HandleIdleSound();
     }
 
     private Coroutine fadeOutRoutine;
@@ -216,43 +212,6 @@ public class Movement : MonoBehaviour
 
         audioSource.Stop();
         audioSource.volume = 1f; //  RESET hlasitosti na 1 po dopadu
-    }
-
-    private void HandleIdleSound()
-    {
-        bool isMoving = animator.GetFloat("speed") > 0;
-        bool isOtherSoundPlaying = isFootstepsPlaying || isFalling ||
-                                   (audioSource.isPlaying && audioSource.clip != idleClip);
-        float currentTime = Time.time;
-
-        if (groundedPlayer && !isMoving && !isOtherSoundPlaying)
-        {
-            if (!isIdlePlaying)
-            {
-                Debug.Log("Playing Idle Sound");
-
-                //  Vždy stopni pøedchozí zvuk, aby nebyl blokován
-                audioSource.Stop();
-                audioSource.clip = idleClip;
-                audioSource.loop = true;
-                audioSource.volume = 1f;
-                audioSource.Play();
-
-                isIdlePlaying = true;
-                isFootstepsPlaying = false;
-                isFalling = false;
-            }
-        }
-        else
-        {
-            if (isIdlePlaying && (isMoving || isOtherSoundPlaying))
-            {
-                Debug.Log("Stopping Idle Sound");
-                audioSource.Stop();
-                isIdlePlaying = false;
-                lastSoundTime = currentTime;
-            }
-        }
     }
 
     private void HandleFootsteps(float speed)
@@ -330,7 +289,7 @@ public class Movement : MonoBehaviour
             // Pøehraje zvuk dopadu, pokud hráè pøedtím nebyl na zemi
             if (!wasGroundedLastFrame)
             {
-                SoundManager.Instance.PlaySound("Land");
+               SoundManager.Instance.PlaySound("Land");
             }
         }
         else
