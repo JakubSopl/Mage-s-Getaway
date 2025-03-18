@@ -5,39 +5,39 @@ public class DogBehavior : MonoBehaviour
 {
     public Animator dogAnimator;       // Animator psa
     public Transform player;           // Transform hráèe
-    public AudioSource audioSource;    // Audio source pro pøehrávání zvukù
+    public AudioSource audioSource;    // Audio source pro pøehrávání zvukù (mùže být nepøiøazen)
     public AudioClip barkSound;        // Zvuk štìkání
 
-    public float angryDistance = 5.0f;        // Nastavení vzdálenosti, pøi které se pes stane naštvaným
-    public float lookDistance = 15.0f;        // Nastavení vzdálenosti, pøi které se pes otáèí za hráèem
+    public float angryDistance = 5.0f; // Vzdálenost, pøi které se pes naštve
+    public float lookDistance = 15.0f; // Vzdálenost, pøi které se pes otáèí za hráèem
     public float rotationSpeed = 2.0f; // Rychlost otáèení psa smìrem k hráèi
 
     private bool isAngryLoopActive = false;   // Kontroluje, zda je smyèka aktivní
     private Coroutine angryLoopCoroutine = null;
+    private bool isBarking = false;           // Kontroluje, zda právì hraje zvuk štìkání
 
     void Start()
     {
-        // Nastaví psa do sedícího stavu na zaèátku
         dogAnimator.SetBool("isSitting", true);
     }
 
     void Update()
     {
-        // Vypoèítejte vzdálenost mezi hráèem a psem
         float distance = Vector3.Distance(player.position, transform.position);
 
-        // Zkontroluje, zda je hráè blízko na to, aby pes zaèal být naštvaný
         if (distance <= angryDistance && !isAngryLoopActive)
         {
             isAngryLoopActive = true;
-            dogAnimator.SetBool("isSitting", false); // Zruší sedící stav
+            dogAnimator.SetBool("isSitting", false);
             angryLoopCoroutine = StartCoroutine(AngryTailLoop());
 
-            // Spustí zvuk štìkání
-            if (!audioSource.isPlaying && barkSound != null)
+            // **Spustí zvuk pouze, pokud ještì nehraje**
+            if (!isBarking && audioSource != null && barkSound != null)
             {
                 audioSource.clip = barkSound;
+                audioSource.loop = true; //  Zvuk se bude opakovat
                 audioSource.Play();
+                isBarking = true;
             }
         }
         else if (distance > angryDistance && isAngryLoopActive)
@@ -49,18 +49,12 @@ public class DogBehavior : MonoBehaviour
                 angryLoopCoroutine = null;
             }
 
-            // Zastaví zvuk štìkání
-            if (audioSource.isPlaying)
-            {
-                audioSource.Stop();
-            }
-
-            // Nastaví psa zpìt do sedícího stavu po mávání ocasem
-            dogAnimator.SetTrigger("isWigglingTail"); // Zavrtí ocasem jednou
-            StartCoroutine(WaitAndSit()); // Po zavrtìní se posadí
+            // Pes **ještì nepøestává** štìkat, dokud se nevrátí do idlu
+            dogAnimator.SetTrigger("isWigglingTail");
+            StartCoroutine(WaitAndSit());
         }
 
-        // Pes se otáèí za hráèem, pokud je hráè ve vzdálenosti 15 jednotek nebo ménì
+        // Otáèení psa smìrem k hráèi
         if (distance <= lookDistance)
         {
             RotateTowardsPlayer();
@@ -71,33 +65,32 @@ public class DogBehavior : MonoBehaviour
     {
         while (isAngryLoopActive)
         {
-            // Spustí animaci naštvání
             dogAnimator.SetTrigger("isAngry");
-            yield return new WaitForSeconds(0.5f); // Krátká pauza mezi pøechody
-
-            // Spustí animaci mávání ocasem
+            yield return new WaitForSeconds(0.5f);
             dogAnimator.SetTrigger("isWigglingTail");
-            yield return new WaitForSeconds(0.5f); // Krátká pauza mezi pøechody
+            yield return new WaitForSeconds(0.5f);
         }
     }
 
     IEnumerator WaitAndSit()
     {
-        // Poèká na dokonèení mávání ocasem, než se posadí
         yield return new WaitForSeconds(1f);
-        dogAnimator.SetBool("isSitting", true); // Pes se posadí
+        dogAnimator.SetBool("isSitting", true);
+
+        //  **Zvuk se zastaví až pøi pøechodu do sedící animace (idle)**
+        if (isBarking && audioSource != null)
+        {
+            audioSource.Stop();
+            isBarking = false;
+        }
     }
 
     void RotateTowardsPlayer()
     {
-        // Smìr od psa k hráèi
         Vector3 direction = (player.position - transform.position).normalized;
-        direction.y = 0; // Zamezí otáèení ve vertikálním smìru
+        direction.y = 0;
 
-        // Cílová rotace smìrem k hráèi
         Quaternion targetRotation = Quaternion.LookRotation(direction);
-
-        // Hladký pøechod rotace k cílové rotaci
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
     }
 }

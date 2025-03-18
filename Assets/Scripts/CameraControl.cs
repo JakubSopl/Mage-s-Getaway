@@ -43,6 +43,8 @@ public class CameraController : MonoBehaviour
 
     public Image fadeImage;
 
+    public GameObject pauseMenu;
+
 
     void Start()
     {
@@ -64,6 +66,12 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
+        if (pauseMenu.activeSelf)
+        {
+            return; 
+        }
+
+        Cursor.visible = false;
         if (isTransitioning)
         {
             HandleCameraTransition();

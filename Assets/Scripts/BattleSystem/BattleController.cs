@@ -28,34 +28,15 @@ public class BattleController : MonoBehaviour
     private static bool playerEscapedLastBattle = false; // Penalizace za útìk
 
     public bool isPlayer = false; // Pøidáno pro rozlišení hráèe
-    private DeadMenuManager deadMenuManager; // Odkaz na DeadMenuManager
-
-    void Start()
-    {
-        ShowCursor(true);
-    }
-
-    public void ShowCursor(bool visible)
-    {
-        Cursor.visible = visible;
-        Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
-    }
-
-    void OnDestroy()
-    {
-        ShowCursor(false);
-    }
 
 
     public void SetupBattle(GameObject player, GameObject enemy, Transform battleCameraPosition, Vector3 playerBattlePosition, BattleTrigger trigger)
     {
         Debug.Log("SetupBattle started.");
 
-        ShowCursor(true);
-
         this.player = player;
         this.enemy = enemy;
-        this.battleTrigger = trigger; // Uložíme aktuální BattleTrigger
+        this.battleTrigger = trigger;
 
         cameraController.EnterBattleMode(battleCameraPosition);
 
@@ -77,15 +58,9 @@ public class BattleController : MonoBehaviour
             return;
         }
 
-        if (enemyController.currentHealth == 0)
-        {
-            enemyController.currentHealth = enemyController.unitScriptableObject.health;
-        }
-
-        if (playerController.currentHealth == 0)
-        {
-            playerController.currentHealth = playerController.unitScriptableObject.health;
-        }
+        // **Pøidáno: Reset statù hráèe i nepøítele**
+        playerController.ResetStats(enemyController);
+        enemyController.ResetStats(playerController);
 
         Debug.Log($"[SetupBattle] Player HP: {playerController.currentHealth}, Enemy HP: {enemyController.currentHealth}");
 
@@ -98,15 +73,6 @@ public class BattleController : MonoBehaviour
 
         player.transform.LookAt(new Vector3(enemy.transform.position.x, player.transform.position.y, enemy.transform.position.z));
         enemy.transform.LookAt(new Vector3(player.transform.position.x, enemy.transform.position.y, player.transform.position.z));
-
-        if (playerController.wasWeakerOnExit)
-        {
-            state = GameState.TURN_ENEMY;
-        }
-        else
-        {
-            state = GameState.TURN_PLAYER;
-        }
 
         if (PlayerHud != null)
         {
@@ -146,20 +112,17 @@ public class BattleController : MonoBehaviour
 
             if (BattleHud != null)
             {
-                BattleHud.EscapePenaltyText(); 
+                BattleHud.EscapePenaltyText();
             }
 
-            playerEscapedLastBattle = false; // Reset penalizace po aplikování
+            playerEscapedLastBattle = false;
             state = GameState.TURN_ENEMY;
             StartCoroutine(TurnEnemy());
         }
-
         else
         {
             state = GameState.TURN_PLAYER;
         }
-
-        //state = GameState.TURN_PLAYER;
     }
 
     private void TurnPlayer()
@@ -195,6 +158,7 @@ public class BattleController : MonoBehaviour
             }
         });
     }
+    
 
     private void EndBattle()
     {

@@ -59,27 +59,31 @@ public class LightingManager : MonoBehaviour
         Color ambientColor = Preset.AmbientColor.Evaluate(timePercent);
         Color fogColor = Preset.FogColor.Evaluate(timePercent);
 
+        float targetAmbientIntensity;
+
         if (TimeOfDay >= 5 && TimeOfDay < 17)
         {
-            RenderSettings.ambientLight = ambientColor;
-            RenderSettings.fogColor = fogColor;
+            targetAmbientIntensity = 1.0f;
         }
         else if (TimeOfDay >= 4.5f && TimeOfDay < 6.2f)
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.white, 0.2f);
-            RenderSettings.fogColor = Color.Lerp(fogColor, Color.yellow, 0.1f);
+            float t = Mathf.InverseLerp(4.5f, 6.2f, TimeOfDay);
+            targetAmbientIntensity = Mathf.Lerp(1.3f, 1.0f, t);
         }
         else if (TimeOfDay >= 17.8f && TimeOfDay < 19.2f)
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.red, 0.2f);
-            RenderSettings.fogColor = Color.Lerp(fogColor, Color.red, 0.1f);
+            float t = Mathf.InverseLerp(17.8f, 19.2f, TimeOfDay);
+            targetAmbientIntensity = Mathf.Lerp(1.0f, 1.3f, t);
         }
-        else
+        else // NOC
         {
-            RenderSettings.ambientLight = Color.Lerp(ambientColor, Color.blue, 0.2f);
-            RenderSettings.fogColor = Color.Lerp(fogColor, Color.black, 0.2f);
+            targetAmbientIntensity = 1.2f;
         }
 
+        baselineAmbientIntensity = Mathf.Lerp(baselineAmbientIntensity, targetAmbientIntensity, Time.deltaTime * 0.5f);
+
+        RenderSettings.ambientLight = ambientColor;
+        RenderSettings.fogColor = fogColor;
         RenderSettings.ambientIntensity = baselineAmbientIntensity;
 
         if (DirectionalLight != null)
@@ -89,6 +93,7 @@ public class LightingManager : MonoBehaviour
             DirectionalLight.transform.localRotation = Quaternion.Euler(new Vector3((timePercent * 360f) - 90f, 170f, 0));
         }
     }
+
 
     private void OnValidate()
     {
